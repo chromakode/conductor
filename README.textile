@@ -1,0 +1,7 @@
+h1. Conductor
+
+h2. ABOUT
+
+Conductor is an experimental playlist generation engine. Conductor learns your listening preferences by observation and makes new song choices automatically.
+
+Conductor is being written as a term project for CS386 (Databases) at Portland State University.
