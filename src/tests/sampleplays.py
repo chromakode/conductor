@@ -4,7 +4,6 @@ from conductor.engine import conductor
 
 c = conductor.Conductor("conductor-test.db")
 
-
 tracks = [{"name": "Blue",   "album": "Cold", "artist": "Colors"},
           {"name": "Cyan",   "album": "Cold", "artist": "Colors"},
           {"name": "Green",  "album": "Cold", "artist": "Colors"},

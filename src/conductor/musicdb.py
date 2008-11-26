@@ -3,7 +3,7 @@ from __future__ import with_statement
 import time
 from pysqlite2 import dbapi2 as sqlite3
 
-class SongDB:
+class MusicDB:
     
     def __init__(self, path):
         self.path = path

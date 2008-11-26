@@ -1,9 +1,9 @@
 import sys
 sys.path.append(".")
 
-from conductor import songdb
+from conductor import musicdb
 
-db = songdb.SongDB("/tmp/songdb-test.db")
+db = musicdb.MusicDB("/tmp/musicdb-test.db")
 db.load()
 
 al1 = db.get_album("AL-1", True)
