@@ -5,6 +5,7 @@ from itertools import izip
 from conductor.engine import conductor
 
 c = conductor.Conductor("/tmp/conductor-test.db")
+c.load()
 
 tracks = [{"name": "Blue",   "album": "Cold", "artist": "Colors"},
           {"name": "Cyan",   "album": "Cold", "artist": "Colors"},
@@ -13,3 +14,5 @@ tracks = [{"name": "Blue",   "album": "Cold", "artist": "Colors"},
 
 for cur, prev in izip(tracks, tracks[1:]):
     c.track_played(cur, previous = prev)
+    
+c.unload()

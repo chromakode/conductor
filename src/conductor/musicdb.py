@@ -21,30 +21,30 @@ class MusicDB:
     def _init_schema(self):
         with self.db:           
             self.db.execute("""
-                CREATE TABLE IF NOT EXISTS artists (
+                CREATE TABLE IF NOT EXISTS artist (
                     artistid INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT UNIQUE
                 )""")
             
             self.db.execute("""
-                CREATE TABLE IF NOT EXISTS albums (
+                CREATE TABLE IF NOT EXISTS album (
                     albumid INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT
                 )""")
             
             self.db.execute("""
-                CREATE TABLE IF NOT EXISTS genres (
+                CREATE TABLE IF NOT EXISTS genre (
                     genreid INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT
                 )""")
             
             self.db.execute("""
-                CREATE TABLE IF NOT EXISTS tracks (
+                CREATE TABLE IF NOT EXISTS track (
                     trackid INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT,
-                    albumid INTEGER REFERENCES albums(albumid) NOT NULL,
-                    artistid INTEGER REFERENCES artists(artistid) NOT NULL,
-                    genreid INTEGER REFERENCES genres(genreid),
+                    albumid INTEGER REFERENCES album(albumid) NOT NULL,
+                    artistid INTEGER REFERENCES artist(artistid) NOT NULL,
+                    genreid INTEGER REFERENCES genre(genreid),
                     lastplayed TIMESTAMP,
                     playcount INTEGER DEFAULT 0
                 )""")
@@ -72,23 +72,23 @@ class MusicDB:
         return id
             
     def get_artist(self, artist_name, add=False):
-        artist_id = self._get_thing_id("SELECT artistid FROM artists WHERE name=:name",
-                                       "INSERT INTO artists (name) VALUES (:name)",
+        artist_id = self._get_thing_id("SELECT artistid FROM artist WHERE name=:name",
+                                       "INSERT INTO artist (name) VALUES (:name)",
                                        add, name=artist_name)
         if artist_id:
             return Artist(self, artist_id, artist_name)
     
     
     def get_album(self, album_name, add=False):
-        album_id = self._get_thing_id("SELECT albumid FROM albums WHERE name=:name",
-                                      "INSERT INTO albums (name) VALUES (:name)", 
+        album_id = self._get_thing_id("SELECT albumid FROM album WHERE name=:name",
+                                      "INSERT INTO album (name) VALUES (:name)", 
                                       add, name=album_name)
         if album_id:
             return Album(self, album_id, album_name)
         
     def get_genre(self, genre_name, add=False):
-        genre_id = self._get_thing_id("SELECT genreid FROM genres WHERE name=:name",
-                                      "INSERT INTO genres (name) VALUES (:name)",
+        genre_id = self._get_thing_id("SELECT genreid FROM genre WHERE name=:name",
+                                      "INSERT INTO genre (name) VALUES (:name)",
                                       add, name=genre_name)
         if genre_id:
             return Genre(self, genre_id, genre_name)
@@ -107,8 +107,8 @@ class MusicDB:
             if not genre:
                 return None
         
-        track_id = self._get_thing_id("SELECT trackid FROM tracks WHERE name = :name AND albumid = :album_id AND artistid = :artist_id",
-                                      "INSERT INTO tracks (name, albumid, artistid, genreid) VALUES (:name, :album_id, :artist_id, :genre_id)", 
+        track_id = self._get_thing_id("SELECT trackid FROM track WHERE name = :name AND albumid = :album_id AND artistid = :artist_id",
+                                      "INSERT INTO track (name, albumid, artistid, genreid) VALUES (:name, :album_id, :artist_id, :genre_id)", 
                                       add, name=track_name, album_id=album.id, artist_id=artist.id, genre_id=(genre.id if genre_name else None))
         if track_id:
             return Track(self, track_id, track_name, album, artist, genre)
@@ -132,5 +132,5 @@ class Track(Thing):
         
     def played(self):
         with self.musicdb.db:
-            self.musicdb.db.execute("UPDATE tracks SET playcount=playcount+1, lastplayed=:now WHERE trackid=:id;", 
+            self.musicdb.db.execute("UPDATE track SET playcount=playcount+1, lastplayed=:now WHERE trackid=:id;", 
                                     {"id": self.id, "now": datetime.datetime.now()})
