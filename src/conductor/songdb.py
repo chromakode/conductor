@@ -132,6 +132,12 @@ class Album:
     def __init__(self, id, name):
         self.id = id
         self.name = name
+
+class Genre:
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+        
 class Track:
     def __init__(self, id, name, album, artist):
         self.id = id
