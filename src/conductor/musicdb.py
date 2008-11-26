@@ -1,6 +1,6 @@
 from __future__ import with_statement
 
-import time
+import datetime
 from pysqlite2 import dbapi2 as sqlite3
 
 class MusicDB:
@@ -10,7 +10,7 @@ class MusicDB:
         self.db = None
         
     def load(self):
-        self.db = sqlite3.connect(self.path)
+        self.db = sqlite3.connect(self.path, detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
         self._init_schema()
         
     def unload(self):
@@ -45,7 +45,7 @@ class MusicDB:
                     albumid INTEGER REFERENCES albums(albumid) NOT NULL,
                     artistid INTEGER REFERENCES artists(artistid) NOT NULL,
                     genreid INTEGER REFERENCES genres(genreid),
-                    lastplayed DATE,
+                    lastplayed TIMESTAMP,
                     playcount INTEGER DEFAULT 0
                 )""")
             
@@ -76,7 +76,7 @@ class MusicDB:
                                        "INSERT INTO artists (name) VALUES (:name)",
                                        add, name=artist_name)
         if artist_id:
-            return Artist(artist_id, artist_name)
+            return Artist(self, artist_id, artist_name)
     
     
     def get_album(self, album_name, add=False):
@@ -84,14 +84,14 @@ class MusicDB:
                                       "INSERT INTO albums (name) VALUES (:name)", 
                                       add, name=album_name)
         if album_id:
-            return Album(album_id, album_name)
+            return Album(self, album_id, album_name)
         
     def get_genre(self, genre_name, add=False):
         genre_id = self._get_thing_id("SELECT genreid FROM genres WHERE name=:name",
                                       "INSERT INTO genres (name) VALUES (:name)",
                                       add, name=genre_name)
         if genre_id:
-            return Genre(genre_id, genre_name)
+            return Genre(self, genre_id, genre_name)
            
     def get_track(self, track_name, album_name, artist_name, genre_name=None, add=False):
         album = self.get_album(album_name, add)
@@ -111,10 +111,11 @@ class MusicDB:
                                       "INSERT INTO tracks (name, albumid, artistid, genreid) VALUES (:name, :album_id, :artist_id, :genre_id)", 
                                       add, name=track_name, album_id=album.id, artist_id=artist.id, genre_id=(genre.id if genre_name else None))
         if track_id:
-            return Track(track_id, track_name, album, artist, genre)
+            return Track(self, track_id, track_name, album, artist, genre)
 
 class Thing:
-    def __init__(self, id, name):
+    def __init__(self, musicdb, id, name):
+        self.musicdb = musicdb
         self.id = id
         self.name = name
 
@@ -123,8 +124,13 @@ class Album(Thing): pass
 class Genre(Thing): pass
 
 class Track(Thing):
-    def __init__(self, id, name, album, artist, genre):
-        Thing.__init__(self, id, name)
+    def __init__(self, musicdb, id, name, album, artist, genre):
+        Thing.__init__(self, musicdb, id, name)
         self.album = album
         self.artist = artist
         self.genre = genre
+        
+    def played(self):
+        with self.musicdb.db:
+            self.musicdb.db.execute("UPDATE tracks SET playcount=playcount+1, lastplayed=:now WHERE trackid=:id;", 
+                                    {"id": self.id, "now": datetime.datetime.now()})

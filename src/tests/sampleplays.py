@@ -1,8 +1,10 @@
-from itertools import izip
+import sys
+sys.path.append(".")
 
+from itertools import izip
 from conductor.engine import conductor
 
-c = conductor.Conductor("conductor-test.db")
+c = conductor.Conductor("/tmp/conductor-test.db")
 
 tracks = [{"name": "Blue",   "album": "Cold", "artist": "Colors"},
           {"name": "Cyan",   "album": "Cold", "artist": "Colors"},
