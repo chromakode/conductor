@@ -11,6 +11,7 @@ class MusicDB:
         
     def load(self):
         self.db = sqlite3.connect(self.path, detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
+        self.db.row_factory = sqlite3.Row
         self._init_schema()
         
     def unload(self):
@@ -62,37 +63,36 @@ class MusicDB:
         with self.db:
             result = self.db.execute(selectsql, params).fetchone()
             
-            if result:
-                id = result[0]
-            else:
+            if not result:
                 if add:
                     id = self.db.execute(insertsql, params).lastrowid
+                    result = self.db.execute(selectsql, params).fetchone()
                 else:
                     return None
        
-        return id
+        return result
             
     def get_artist(self, artist_name, add=False):
-        artist_id = self._get_thing_id("SELECT artistid FROM artist WHERE name=:name",
-                                       "INSERT INTO artist (name) VALUES (:name)",
-                                       add, {"name": artist_name})
-        if artist_id:
-            return Artist(self, artist_id, artist_name)
+        row = self._get_thing_id("SELECT * FROM artist WHERE name=:name",
+                                 "INSERT INTO artist (name) VALUES (:name)",
+                                 add, {"name": artist_name})
+        if row:
+            return Artist(self, row["artistid"], row)
     
     
     def get_album(self, album_name, add=False):
-        album_id = self._get_thing_id("SELECT albumid FROM album WHERE name=:name",
-                                      "INSERT INTO album (name) VALUES (:name)", 
-                                      add, {"name": album_name})
-        if album_id:
-            return Album(self, album_id, album_name)
+        row = self._get_thing_id("SELECT * FROM album WHERE name=:name",
+                                 "INSERT INTO album (name) VALUES (:name)", 
+                                 add, {"name": album_name})
+        if row:
+            return Album(self, row["albumid"], row)
         
     def get_genre(self, genre_name, add=False):
-        genre_id = self._get_thing_id("SELECT genreid FROM genre WHERE name=:name",
-                                      "INSERT INTO genre (name) VALUES (:name)",
-                                      add, {"name": genre_name})
-        if genre_id:
-            return Genre(self, genre_id, genre_name)
+        row = self._get_thing_id("SELECT * FROM genre WHERE name=:name",
+                                 "INSERT INTO genre (name) VALUES (:name)",
+                                 add, {"name": genre_name})
+        if row:
+            return Genre(self, row["genreid"], row)
            
     def get_track(self, track_name, album_name, artist_name, genre_name=None, add=False):
         album = self.get_album(album_name, add)
@@ -108,25 +108,28 @@ class MusicDB:
             if not genre:
                 return None
         
-        track_id = self._get_thing_id("SELECT trackid FROM track WHERE name = :name AND albumid = :album_id AND artistid = :artist_id",
-                                      "INSERT INTO track (name, albumid, artistid, genreid, added) VALUES (:name, :album_id, :artist_id, :genre_id, current_timestamp)", 
-                                      add, {"name": track_name, "album_id": album.id, "artist_id": artist.id, "genre_id": (genre.id if genre_name else None)})
-        if track_id:
-            return Track(self, track_id, track_name, album, artist, genre)
+        row = self._get_thing_id("SELECT * FROM track WHERE name = :name AND albumid = :album_id AND artistid = :artist_id",
+                                 "INSERT INTO track (name, albumid, artistid, genreid, added) VALUES (:name, :album_id, :artist_id, :genre_id, current_timestamp)", 
+                                 add, {"name": track_name, "album_id": album.id, "artist_id": artist.id, "genre_id": (genre.id if genre_name else None)})
+        if row:
+            return Track(self, row["trackid"], row, album, artist, genre)
 
 class Thing:
-    def __init__(self, musicdb, id, name):
+    def __init__(self, musicdb, id, row):
         self.musicdb = musicdb
         self.id = id
-        self.name = name
+        self.row = row
+        
+    def __getitem__(self, key):
+        return self.row[key]
 
 class Artist(Thing): pass
 class Album(Thing): pass
 class Genre(Thing): pass
 
 class Track(Thing):
-    def __init__(self, musicdb, id, name, album, artist, genre):
-        Thing.__init__(self, musicdb, id, name)
+    def __init__(self, musicdb, id, row, album, artist, genre):
+        Thing.__init__(self, musicdb, id, row)
         self.album = album
         self.artist = artist
         self.genre = genre
