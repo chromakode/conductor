@@ -58,15 +58,15 @@ class MusicDB:
             
             # TODO: add indexes here?
             
-    def _get_thing_id(self, selectsql, insertsql, add, **kwargs):
+    def _get_thing_id(self, selectsql, insertsql, add, params):
         with self.db:
-            result = self.db.execute(selectsql, kwargs).fetchone()
+            result = self.db.execute(selectsql, params).fetchone()
             
             if result:
                 id = result[0]
             else:
                 if add:
-                    id = self.db.execute(insertsql, kwargs).lastrowid
+                    id = self.db.execute(insertsql, params).lastrowid
                 else:
                     return None
        
@@ -75,7 +75,7 @@ class MusicDB:
     def get_artist(self, artist_name, add=False):
         artist_id = self._get_thing_id("SELECT artistid FROM artist WHERE name=:name",
                                        "INSERT INTO artist (name) VALUES (:name)",
-                                       add, name=artist_name)
+                                       add, {"name": artist_name})
         if artist_id:
             return Artist(self, artist_id, artist_name)
     
@@ -83,14 +83,14 @@ class MusicDB:
     def get_album(self, album_name, add=False):
         album_id = self._get_thing_id("SELECT albumid FROM album WHERE name=:name",
                                       "INSERT INTO album (name) VALUES (:name)", 
-                                      add, name=album_name)
+                                      add, {"name": album_name})
         if album_id:
             return Album(self, album_id, album_name)
         
     def get_genre(self, genre_name, add=False):
         genre_id = self._get_thing_id("SELECT genreid FROM genre WHERE name=:name",
                                       "INSERT INTO genre (name) VALUES (:name)",
-                                      add, name=genre_name)
+                                      add, {"name": genre_name})
         if genre_id:
             return Genre(self, genre_id, genre_name)
            
@@ -110,7 +110,7 @@ class MusicDB:
         
         track_id = self._get_thing_id("SELECT trackid FROM track WHERE name = :name AND albumid = :album_id AND artistid = :artist_id",
                                       "INSERT INTO track (name, albumid, artistid, genreid, added) VALUES (:name, :album_id, :artist_id, :genre_id, current_timestamp)", 
-                                      add, name=track_name, album_id=album.id, artist_id=artist.id, genre_id=(genre.id if genre_name else None))
+                                      add, {"name": track_name, "album_id": album.id, "artist_id": artist.id, "genre_id": (genre.id if genre_name else None)})
         if track_id:
             return Track(self, track_id, track_name, album, artist, genre)
 
