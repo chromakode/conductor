@@ -46,6 +46,7 @@ class MusicDB:
                     artistid INTEGER REFERENCES artist(artistid) NOT NULL,
                     genreid INTEGER REFERENCES genre(genreid),
                     lastplayed TIMESTAMP,
+                    added TIMESTAMP,
                     playcount INTEGER DEFAULT 0
                 )""")
             
@@ -108,7 +109,7 @@ class MusicDB:
                 return None
         
         track_id = self._get_thing_id("SELECT trackid FROM track WHERE name = :name AND albumid = :album_id AND artistid = :artist_id",
-                                      "INSERT INTO track (name, albumid, artistid, genreid) VALUES (:name, :album_id, :artist_id, :genre_id)", 
+                                      "INSERT INTO track (name, albumid, artistid, genreid, added) VALUES (:name, :album_id, :artist_id, :genre_id, current_timestamp)", 
                                       add, name=track_name, album_id=album.id, artist_id=artist.id, genre_id=(genre.id if genre_name else None))
         if track_id:
             return Track(self, track_id, track_name, album, artist, genre)
@@ -132,5 +133,5 @@ class Track(Thing):
         
     def played(self):
         with self.musicdb.db:
-            self.musicdb.db.execute("UPDATE track SET playcount=playcount+1, lastplayed=:now WHERE trackid=:id;", 
-                                    {"id": self.id, "now": datetime.datetime.now()})
+            self.musicdb.db.execute("UPDATE track SET playcount=playcount+1, lastplayed=current_timestamp WHERE trackid=:id;", 
+                                    {"id": self.id})
