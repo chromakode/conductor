@@ -48,7 +48,8 @@ class MusicDB:
                     genreid INTEGER REFERENCES genre(genreid),
                     lastplayed TIMESTAMP,
                     added TIMESTAMP,
-                    playcount INTEGER DEFAULT 0
+                    playcount INTEGER DEFAULT 0,
+                    UNIQUE(name, albumid, artistid)
                 )""")
             
             self.db.execute("""
@@ -134,7 +135,7 @@ class Track(Thing):
         self.artist = artist
         self.genre = genre
         
-    def played(self):
+    def record_play(self):
         with self.musicdb.db:
             self.musicdb.db.execute("UPDATE track SET playcount=playcount+1, lastplayed=current_timestamp WHERE trackid=:id;", 
                                     {"id": self.id})
