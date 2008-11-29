@@ -19,8 +19,7 @@ class MarkovConductor:
     
     def __init__(self, dbpath):
         self.musicdb = MusicDB(dbpath)
-        self.chains = [MarkovChain(self.musicdb, "trackid", "trackid"),
-                       MarkovChain(self.musicdb, "artistid", "artistid")]
+        self.chains = [MarkovChain(self.musicdb, "trackid", "trackid")]
         
     def load(self):
         self.musicdb.load()
@@ -30,25 +29,28 @@ class MarkovConductor:
     def unload(self):
         self.musicdb.unload()
         
-    def _get_track(self, d):
+    def get_track(self, d):
         if d:
             return self.musicdb.get_track(track_name=d["track"],
                                           album_name=d["album"],
                                           artist_name=d["artist"],
                                           genre_name=d["genre"],
                                           add=True)
+            
+    def add_track(self, d):
+        self.get_track(d)
         
     def track_change(self, previous, current):
-        track = self._get_track(current)
-        prevtrack = self._get_track(previous)
+        track = self.get_track(current)
+        prevtrack = self.get_track(previous)
         
         track.record_play()
         if prevtrack:
             for chain in self.chains:
                 chain.record_transition(prevtrack.id, track.id)
     
-    def get_next_track(self, fromtrack):
-        fromid = self._get_track(fromtrack).id
+    def get_next_track(self, fromtrack=None):
+        fromid = self.get_track(fromtrack).id if fromtrack else None
         toid = self.choose_next_id(fromid)
         
         totrack = self.musicdb.get_track_by_id(toid)
@@ -58,34 +60,38 @@ class MarkovConductor:
                 "genre":  totrack.genre["name"]}
         
     
-    def choose_next_id(self, fromid):
+    def choose_next_id(self, fromid=None):
         return weighted_choice(self.get_transitions_from_id(fromid))
     
-    def get_transitions_from_id(self, fromid):
+    def get_transitions_from_id(self, fromid=None):
+        def if_fromid(str):
+            return str if fromid else ""
+        
         with self.musicdb.db:
             sql = " ".join((
-                "SELECT totrack.trackid as totrackid,",
+                "SELECT totrack.trackid AS totrackid,",
                         
+                        "0.1 + ifnull(",
                         # Sum chain scores for each destination track (0 if null)
                         # Scores are normalized by dividing by the total of all scores. Thus, the maximum possible value is 1.
                         #
                         # e.g. ifnull(transition_field_field.score, 0) / (SELECT SUM(score) FROM table WHERE from_field=fromtrack.field)
                         #
-                        " + ".join("CAST(ifnull(%(table)s.score, 0) AS FLOAT) / (SELECT SUM(score) FROM %(table)s WHERE %(fromfield_column)s=fromtrack.%(fromfield)s)"
+                        " + ".join(("CAST(ifnull(%(table)s.score, 0) AS FLOAT) / (SELECT SUM(score) FROM %(table)s" + if_fromid(" WHERE %(fromfield_column)s=fromtrack.%(fromfield)s") + ")")
                                    % {"table": c.table,
                                       "fromfield": c.fromfield,
                                       "fromfield_column": c.fromfield_column}
                                    for c in self.chains),
-                        "AS totalscore",
+                        ", 0) AS totalscore",
                                     
-                    "FROM track fromtrack, track totrack",
+                    "FROM " + if_fromid("track fromtrack, ") + "track totrack",
                     
                         # Left join with each chain's matching edges
                         # (such that chain.from_field=fromtrack.fromfield and chain.to_field=totrack.tofield)
                         #
                         # e.g. LEFT JOIN transition_field_field ON (from_field=fromtrack.field AND to_field=totrack.field)
                         #
-                        " ".join("LEFT JOIN %(table)s ON (%(table)s.%(fromfield_column)s=fromtrack.%(fromfield)s AND %(table)s.%(tofield_column)s=totrack.%(tofield)s)"
+                        " ".join(("LEFT JOIN %(table)s ON (%(table)s.%(tofield_column)s=totrack.%(tofield)s" + if_fromid(" AND %(table)s.%(fromfield_column)s=fromtrack.%(fromfield)s") + ")")
                                  % {"table": c.table,
                                     "fromfield": c.fromfield,
                                     "fromfield_column": c.fromfield_column,
@@ -94,8 +100,7 @@ class MarkovConductor:
                                  for c in self.chains),
                                     
                     "WHERE",
-                        "fromtrack.trackid=%s" % fromid,
-                        "AND totalscore>0"
+                        if_fromid("fromtrack.trackid=%s AND " % fromid) + "totalscore>0",
                 ))
             
             scores = dict((row["totrackid"], row["totalscore"]) for row in self.musicdb.db.execute(sql))
