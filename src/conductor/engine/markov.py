@@ -1,6 +1,19 @@
 from __future__ import with_statement
 
+import random, bisect
+
 from ..musicdb import MusicDB
+
+def weighted_choice(weight_dict):
+    accum = 0
+    choices = []
+    for item, weight in weight_dict.iteritems():
+        accum += weight
+        choices.append(accum)
+    
+    rand = random.random() * accum
+    index = bisect.bisect_right(choices, rand)
+    return weight_dict.keys()[index]
 
 class MarkovConductor:    
     
@@ -17,23 +30,37 @@ class MarkovConductor:
     def unload(self):
         self.musicdb.unload()
         
-    def track_change(self, current, previous):
-        def get_track(d):
-            if d:
-                return self.musicdb.get_track(track_name=d["track"],
-                                              album_name=d["album"],
-                                              artist_name=d["artist"],
-                                              genre_name=d["genre"],
-                                              add=True)
+    def _get_track(self, d):
+        if d:
+            return self.musicdb.get_track(track_name=d["track"],
+                                          album_name=d["album"],
+                                          artist_name=d["artist"],
+                                          genre_name=d["genre"],
+                                          add=True)
         
-        track = get_track(current)
-        prevtrack = get_track(previous)
+    def track_change(self, current, previous):
+        track = self._get_track(current)
+        prevtrack = self._get_track(previous)
         
         track.record_play()
         if prevtrack:
             for chain in self.chains:
                 chain.record_transition(prevtrack.id, track.id)
-                
+    
+    def get_next_track(self, fromtrack):
+        fromid = self._get_track(fromtrack).id
+        toid = self.choose_next_id(fromid)
+        
+        totrack = self.musicdb.get_track_by_id(toid)
+        return {"track":  totrack["name"],
+                "album":  totrack.album["name"],
+                "artist": totrack.artist["name"],
+                "genre":  totrack.genre["name"]}
+        
+    
+    def choose_next_id(self, fromid):
+        return weighted_choice(self.get_transitions_from_id(fromid))
+    
     def get_transitions_from_id(self, fromid):
         with self.musicdb.db:
             sql = " ".join((
@@ -42,7 +69,7 @@ class MarkovConductor:
                         # Sum chain scores for each destination track (0 if null)
                         # Scores are normalized by dividing by the total of all scores. Thus, the maximum possible value is 1.
                         #
-                        # e.g. ifnull(transition_field_field.score, 0)
+                        # e.g. ifnull(transition_field_field.score, 0) / (SELECT SUM(score) FROM table WHERE from_field=fromtrack.field)
                         #
                         " + ".join("CAST(ifnull(%(table)s.score, 0) AS FLOAT) / (SELECT SUM(score) FROM %(table)s WHERE %(fromfield_column)s=fromtrack.%(fromfield)s)"
                                    % {"table": c.table,

@@ -72,6 +72,12 @@ class MusicDB:
                     return None
        
         return result
+    
+    def _get_thing_by_id(self, table, id_column, id, thingclass, *thingargs):
+        row = self.db.execute("SELECT * FROM %(table)s WHERE %(id_column)s = :id"
+                              % {"table": table, "id_column": id_column}, {"id": id}).fetchone()
+        if row:
+            return thingclass(self, row[id_column], row, *thingargs)
             
     def get_artist(self, artist_name, add=False):
         row = self._get_thing_id("SELECT * FROM artist WHERE name=:name",
@@ -82,9 +88,10 @@ class MusicDB:
     
     
     def get_album(self, album_name, add=False):
-        row = self._get_thing_id("SELECT * FROM album WHERE name=:name",
-                                 "INSERT INTO album (name) VALUES (:name)", 
-                                 add, {"name": album_name})
+        with self.db:
+            row = self._get_thing_id("SELECT * FROM album WHERE name=:name",
+                                     "INSERT INTO album (name) VALUES (:name)",
+                                     add, {"name": album_name})
         if row:
             return Album(self, row["albumid"], row)
         
@@ -114,6 +121,13 @@ class MusicDB:
                                  add, {"name": track_name, "album_id": album.id, "artist_id": artist.id, "genre_id": (genre.id if genre_name else None)})
         if row:
             return Track(self, row["trackid"], row, album, artist, genre)
+        
+    def get_track_by_id(self, track_id):
+        track = self._get_thing_by_id("track", "trackid", track_id, Track)
+        track.album = self._get_thing_by_id("album", "albumid", track["albumid"], Album)
+        track.artist = self._get_thing_by_id("artist", "artistid", track["artistid"], Artist)
+        track.genre = self._get_thing_by_id("genre", "genreid", track["genreid"], Genre)
+        return track
 
 class Thing:
     def __init__(self, musicdb, id, row):
@@ -129,7 +143,7 @@ class Album(Thing): pass
 class Genre(Thing): pass
 
 class Track(Thing):
-    def __init__(self, musicdb, id, row, album, artist, genre):
+    def __init__(self, musicdb, id, row, album=None, artist=None, genre=None):
         Thing.__init__(self, musicdb, id, row)
         self.album = album
         self.artist = artist
