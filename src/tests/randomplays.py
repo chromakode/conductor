@@ -1,7 +1,7 @@
 import sys
 sys.path.append(".")
 
-from itertools import izip
+import random
 from conductor.engine.markov import MarkovConductor
 
 c = MarkovConductor("/tmp/conductor-test.db")
@@ -13,7 +13,11 @@ tracks = [{"track": "Blue",   "album": "Cold", "artist": "Colors",  "genre": "El
           {"track": "Purple", "album": "Cold", "artist": "Colors",  "genre": "Electronic"},
           {"track": "One",    "album": "Low",  "artist": "Numbers", "genre": "Math Rock"}]
 
-for prev, cur in izip([None]+tracks, tracks):
+prev = None
+for i in range(0, 200):
+    cur = random.choice(tracks)
+    print cur, prev
     c.track_change(cur, previous = prev)
+    prev = cur
     
 c.unload()
