@@ -41,15 +41,31 @@ class MarkovChain:
         self.fromfield = fromfield
         self.tofield = tofield
     
+    @property
+    def table(self):
+        return "transition_"+self.fromfield+"_"+self.tofield
+    
+    @property
+    def fromfield_column(self):
+        return "from_"+self.fromfield
+    
+    @property
+    def tofield_column(self):
+        return "to_"+self.tofield
+    
     def init(self):
         with self.musicdb.db:
             self.musicdb.db.execute("""
-                CREATE TABLE IF NOT EXISTS transition_%(fromfield)s_%(fromfield)s (
-                    from_%(fromfield)s INTEGER REFERENCES tracks(%(fromfield)s) NOT NULL,
-                    to_%(tofield)s INTEGER REFERENCES tracks(%(tofield)s) NOT NULL,
+                CREATE TABLE IF NOT EXISTS %(table)s (
+                    %(fromfield_column)s INTEGER REFERENCES tracks(%(fromfield)s) NOT NULL,
+                    %(tofield_column)s INTEGER REFERENCES tracks(%(tofield)s) NOT NULL,
                     score INTEGER DEFAULT 0,
-                    UNIQUE (from_%(fromfield)s, to_%(tofield)s)
-                )""" % {"fromfield": self.fromfield, "tofield": self.tofield})
+                    UNIQUE (%(fromfield_column)s, %(tofield_column)s)
+                )""" % {"table": self.table,
+                        "fromfield": self.fromfield,
+                        "fromfield_column": self.fromfield_column,
+                        "tofield": self.tofield,
+                        "tofield_column": self.tofield_column})
     
     def record_transition(self, fromtrackid, totrackid):
         with self.musicdb.db:
@@ -66,16 +82,16 @@ class MarkovChain:
             # "Touch" the transition entry to ensure that it exists
             self.musicdb.db.execute("""
                 INSERT OR IGNORE
-                    INTO transition_%(fromfield)s_%(fromfield)s (from_%(fromfield)s, to_%(tofield)s) 
+                    INTO %(table)s (%(fromfield_column)s, %(tofield_column)s)
                     VALUES (:fromid, :toid)
-                """ % {"fromfield": self.fromfield, "tofield": self.tofield},
+                """ % {"table": self.table, "fromfield_column": self.fromfield_column, "tofield_column": self.tofield_column},
                 {"fromid": fromid, "toid": toid})
             
             # Increment the score of the transition by one
             self.musicdb.db.execute("""
-                UPDATE transition_%(fromfield)s_%(fromfield)s
+                UPDATE %(table)s
                     SET score=score+1
-                    WHERE from_%(fromfield)s=:fromid AND to_%(tofield)s=:toid
-                """ % {"fromfield": self.fromfield, "tofield": self.tofield},
+                    WHERE %(fromfield_column)s=:fromid AND %(tofield_column)s=:toid
+                """ % {"table": self.table, "fromfield_column": self.fromfield_column, "tofield_column": self.tofield_column},
                 {"fromid": fromid, "toid": toid})
     
