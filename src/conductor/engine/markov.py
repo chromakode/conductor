@@ -38,7 +38,7 @@ class MarkovConductor:
                                           genre_name=d["genre"],
                                           add=True)
         
-    def track_change(self, current, previous):
+    def track_change(self, previous, current):
         track = self._get_track(current)
         prevtrack = self._get_track(previous)
         

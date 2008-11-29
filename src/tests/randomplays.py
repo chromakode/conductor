@@ -17,7 +17,7 @@ prev = None
 for i in range(0, 200):
     cur = random.choice(tracks)
     print cur, prev
-    c.track_change(cur, previous = prev)
+    c.track_change(prev, cur)
     prev = cur
     
 c.unload()
