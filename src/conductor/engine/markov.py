@@ -33,6 +33,46 @@ class MarkovConductor:
         if prevtrack:
             for chain in self.chains:
                 chain.record_transition(prevtrack.id, track.id)
+                
+    def get_transitions_from_id(self, fromid):
+        with self.musicdb.db:
+            sql = " ".join((
+                "SELECT totrack.trackid as totrackid,",
+                        
+                        # Sum chain scores for each destination track (0 if null)
+                        # Scores are normalized by dividing by the total of all scores. Thus, the maximum possible value is 1.
+                        #
+                        # e.g. ifnull(transition_field_field.score, 0)
+                        #
+                        " + ".join("CAST(ifnull(%(table)s.score, 0) AS FLOAT) / (SELECT SUM(score) FROM %(table)s WHERE %(fromfield_column)s=fromtrack.%(fromfield)s)"
+                                   % {"table": c.table,
+                                      "fromfield": c.fromfield,
+                                      "fromfield_column": c.fromfield_column}
+                                   for c in self.chains),
+                        "AS totalscore",
+                                    
+                    "FROM track fromtrack, track totrack",
+                    
+                        # Left join with each chain's matching edges
+                        # (such that chain.from_field=fromtrack.fromfield and chain.to_field=totrack.tofield)
+                        #
+                        # e.g. LEFT JOIN transition_field_field ON (from_field=fromtrack.field AND to_field=totrack.field)
+                        #
+                        " ".join("LEFT JOIN %(table)s ON (%(table)s.%(fromfield_column)s=fromtrack.%(fromfield)s AND %(table)s.%(tofield_column)s=totrack.%(tofield)s)"
+                                 % {"table": c.table,
+                                    "fromfield": c.fromfield,
+                                    "fromfield_column": c.fromfield_column,
+                                    "tofield_column": c.tofield_column,
+                                    "tofield": c.tofield}
+                                 for c in self.chains),
+                                    
+                    "WHERE",
+                        "fromtrack.trackid=%s" % fromid,
+                        "AND totalscore>0"
+                ))
+            
+            scores = dict((row["totrackid"], row["totalscore"]) for row in self.musicdb.db.execute(sql))
+            return scores
     
 class MarkovChain:
     
