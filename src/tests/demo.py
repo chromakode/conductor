@@ -16,6 +16,12 @@ def read_chr():
     
     return chr
 
+def print_histogram(score_dict):
+    max_score = max(score_dict.values())
+    total = sum(score_dict.values())
+    for id, score in score_dict.iteritems():
+        print "%4d: %5.2f (%5.2f) %s" % (id, score, 100*score/total, "-"*int(50*(score/max_score)))
+    
 c = MarkovConductor("/tmp/conductor-demo.db")
 c.load()
 
@@ -27,23 +33,34 @@ for filename in os.listdir(SAMPLEPATH):
                  "genre":  "Sample"}
         c.add_track(track)
 
-prev = None    
-cur = c.get_next_track()
+prev = c.get_next_track()
+cur = c.get_next_track(prev)
+cmd = None
 while True:
-    os.system("play %s trim 0.1     fade 0 .5 1.5" % cur["track"])
+    os.system("play %s trim 0.1 fade 0 .5 .75" % prev["track"])
+    os.system("play %s trim 0.1 fade 0 .5 .75" % cur["track"])
+    
+    print
+    previd = c.get_track(prev).id
+    curid = c.get_track(cur).id
+    print "%s -> %s" % (previd, curid)
+    print "---"
+    scores = c.get_transitions_from_id(previd)
+    print_histogram(scores)
     
     cmd = read_chr().lower()    
     if cmd == "g":
-        c.track_change(prev, cur)
+        c.score_transition(prev, cur, 2)
+    elif cmd == "b":
+        c.score_transition(prev, cur, -2)
     elif cmd == "q":
         sys.exit()
     
-    scores = c.get_transitions_from_id(c.get_track(cur).id)
-    print "\n".join("%s:\t%s" % (id, score) for id, score in scores.iteritems())
-    
+    # If the last choice wasn't bad, continue to the next track
     if not cmd == "b":
-        prev = cur
+        c.track_change(prev, cur)
+        #prev = cur
     
-    cur = c.get_next_track(cur)
+    cur = c.get_next_track(prev)
     
 c.unload()
