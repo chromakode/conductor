@@ -23,6 +23,7 @@ class MarkovConductor:
     def __init__(self, dbpath):
         self.musicdb = MusicDB(dbpath)
         self.chains = {}
+        self.weight_func = self._calculate_weight
         
     def load(self):
         self.musicdb.load()
@@ -96,7 +97,16 @@ class MarkovConductor:
     def choose_next_id(self, fromid=None):
         return weighted_choice(self.get_transitions_from_id(fromid))
     
+    def _calculate_weight(self, score, human_score):
+        """Calculate a weighting based on an inferred score and human-specified score"""
+        return math.exp(human_score) * math.exp(score*4)
+    
     def get_transitions_from_id(self, fromid=None):
+        """
+        Based on a track id, determine the ids and scores of possible following tracks.
+        Returns: a dictionary of the form { trackid: score, .. }
+        
+        """
         def if_fromid(str):
             return str if fromid else ""
         
@@ -138,7 +148,7 @@ class MarkovConductor:
                     if_fromid("WHERE fromtrack.trackid=%s" % fromid),
                 ))
             
-            scores = dict((row["totrackid"], math.exp(row["totalhumanscore"])*math.exp(row["totalscore"]*4)) for row in self.musicdb.db.execute(sql))
+            scores = dict((row["totrackid"], self.weight_func(row["totalscore"], row["totalhumanscore"])) for row in self.musicdb.db.execute(sql))
             return scores
     
 class MarkovChain:
