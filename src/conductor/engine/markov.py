@@ -22,16 +22,38 @@ class MarkovConductor:
     
     def __init__(self, dbpath):
         self.musicdb = MusicDB(dbpath)
-        self.chains = [MarkovChain(self.musicdb, "trackid", "trackid")]
+        self.chains = {}
         
     def load(self):
         self.musicdb.load()
-        for chain in self.chains:
-            chain.init()
+        self.init()
+        
+        with self.musicdb.db:
+            chains = self.musicdb.db.execute("SELECT * FROM chain").fetchall()
+        
+        for row in chains:
+            self.init_chain(row["fromfield"], row["tofield"])
         
     def unload(self):
         self.musicdb.unload()
         
+    def init(self):
+        with self.musicdb.db:
+            self.musicdb.db.execute("""
+                CREATE TABLE IF NOT EXISTS chain (
+                    fromfield TEXT NOT NULL,
+                    tofield TEXT NOT NULL,
+                    score INTEGER DEFAULT 0,
+                    total INTEGER DEFAULT 0,
+                    PRIMARY KEY (fromfield, tofield)
+                )""")
+    
+    def init_chain(self, fromfield, tofield):
+        if not (fromfield, tofield) in self.chains:
+            chain = MarkovChain(self.musicdb, fromfield, tofield)
+            chain.init()
+            self.chains[(fromfield, tofield)] = chain
+    
     def get_track(self, d):
         if d:
             return self.musicdb.get_track(track_name=d["track"],
@@ -57,7 +79,7 @@ class MarkovConductor:
         self.score_transition_by_id(prevtrack.id, track.id, amount, human_amount)
     
     def score_transition_by_id(self, fromid, toid, amount=0, human_amount=0):
-        for chain in self.chains:
+        for chain in self.chains.values():
             chain.record_transition(fromid, toid, amount, human_amount)
         
     def get_next_track(self, fromtrack=None):
@@ -87,15 +109,15 @@ class MarkovConductor:
                         #
                         # e.g. ifnull(transition_field_field.score, 0) / (SELECT SUM(score) FROM table WHERE from_field=fromtrack.field)
                         #
-                        " + ".join(("ifnull(%(table)s.humanscore, 0) AS totalhumanscore," +
+                        " + ".join(("ifnull(%(table)s.humanscore, 0) AS totalhumanscore, " +
                                     "ifnull( CAST(ifnull(%(table)s.score, 0) AS FLOAT)" +
-                                    " / (SELECT MAX(20, MAX(score)) FROM %(table)s" +
-                                    if_fromid(" WHERE %(fromfield_column)s=fromtrack.%(fromfield)s") + ")")
+                                    " / (SELECT MAX(10, MAX(score)) FROM %(table)s" +
+                                    if_fromid(" WHERE %(fromfield_column)s=fromtrack.%(fromfield)s") + "), 0)")
                                    % {"table": c.table,
                                       "fromfield": c.fromfield,
                                       "fromfield_column": c.fromfield_column}
-                                   for c in self.chains),
-                        ", 0) AS totalscore",
+                                   for c in self.chains.values()),
+                        "AS totalscore",
                                     
                     "FROM " + if_fromid("track fromtrack, ") + "track totrack",
                     
@@ -111,7 +133,7 @@ class MarkovConductor:
                                     "fromfield_column": c.fromfield_column,
                                     "tofield_column": c.tofield_column,
                                     "tofield": c.tofield}
-                                 for c in self.chains),
+                                 for c in self.chains.values()),
                                     
                     if_fromid("WHERE fromtrack.trackid=%s" % fromid),
                 ))
@@ -128,7 +150,7 @@ class MarkovChain:
     
     @property
     def table(self):
-        return "transition_"+self.fromfield+"_"+self.tofield
+        return "chain_"+self.fromfield+"_"+self.tofield
     
     @property
     def fromfield_column(self):
@@ -141,17 +163,36 @@ class MarkovChain:
     def init(self):
         with self.musicdb.db:
             self.musicdb.db.execute("""
+                INSERT OR IGNORE
+                    INTO chain (fromfield, tofield)
+                    VALUES (:fromfield, :tofield)
+                """, {"fromfield": self.fromfield, "tofield": self.tofield})
+                        
+            self.musicdb.db.execute("""
                 CREATE TABLE IF NOT EXISTS %(table)s (
                     %(fromfield_column)s INTEGER REFERENCES tracks(%(fromfield)s) NOT NULL,
                     %(tofield_column)s INTEGER REFERENCES tracks(%(tofield)s) NOT NULL,
                     score INTEGER DEFAULT 0,
                     humanscore INTEGER DEFAULT 0,
-                    UNIQUE (%(fromfield_column)s, %(tofield_column)s)
+                    PRIMARY KEY (%(fromfield_column)s, %(tofield_column)s)
                 )""" % {"table": self.table,
                         "fromfield": self.fromfield,
                         "fromfield_column": self.fromfield_column,
                         "tofield": self.tofield,
                         "tofield_column": self.tofield_column})
+            
+    def delete(self):
+        with self.musicdb.db:
+            self.musicdb.db.execute("DROP TABLE %(table)s" % {"table": self.table})
+            
+            self.musicdb.db.execute("""
+                DELETE FROM chain
+                WHERE fromfield=:fromfield, tofield=:tofield
+                """, {"fromfield": self.fromfield, "tofield": self.tofield})
+        
+    def reset(self):
+        with self.musicdb.db:
+            self.musicdb.db.execute("DELETE FROM %(table)s" % {"table": self.table})
     
     def record_transition(self, fromtrackid, totrackid, amount=0, human_amount=0):
         with self.musicdb.db:

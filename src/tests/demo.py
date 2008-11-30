@@ -24,6 +24,8 @@ def print_histogram(score_dict):
     
 c = MarkovConductor("/tmp/conductor-demo.db")
 c.load()
+c.init_chain("trackid", "trackid")
+c.init_chain("artistid", "artistid")
 
 for filename in os.listdir(SAMPLEPATH):
     if filename.endswith(".wav"):
