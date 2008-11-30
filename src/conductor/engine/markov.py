@@ -49,16 +49,16 @@ class MarkovConductor:
         
         track.record_play()
         if prevtrack:
-            self.score_transition_by_id(prevtrack.id, track.id, 1)
+            self.score_transition_by_id(prevtrack.id, track.id, amount=1)
     
-    def score_transition(self, previous, current, amount):
+    def score_transition(self, previous, current, amount=0, human_amount=0):
         prevtrack = self.get_track(previous)
         track = self.get_track(current)
-        self.score_transition_by_id(prevtrack.id, track.id, amount)
+        self.score_transition_by_id(prevtrack.id, track.id, amount, human_amount)
     
-    def score_transition_by_id(self, fromid, toid, amount):
+    def score_transition_by_id(self, fromid, toid, amount=0, human_amount=0):
         for chain in self.chains:
-            chain.record_transition(fromid, toid, amount)
+            chain.record_transition(fromid, toid, amount, human_amount)
         
     def get_next_track(self, fromtrack=None):
         fromid = self.get_track(fromtrack).id if fromtrack else None
@@ -82,18 +82,20 @@ class MarkovConductor:
             sql = " ".join((
                 "SELECT totrack.trackid AS totrackid,",
                         
-                        "ifnull(",
                         # Sum chain scores for each destination track (0 if null)
                         # Scores are normalized by dividing by the total of all scores. Thus, the maximum possible value is 1.
                         #
                         # e.g. ifnull(transition_field_field.score, 0) / (SELECT SUM(score) FROM table WHERE from_field=fromtrack.field)
                         #
-                        " + ".join(("CAST(ifnull(%(table)s.score, -5) AS FLOAT) / max(20, (SELECT SUM(max(0, score)) FROM %(table)s" + if_fromid(" WHERE %(fromfield_column)s=fromtrack.%(fromfield)s") + ")")
+                        " + ".join(("ifnull(%(table)s.humanscore, 0) AS totalhumanscore," +
+                                    "ifnull( CAST(ifnull(%(table)s.score, 0) AS FLOAT)" +
+                                    " / (SELECT MAX(20, MAX(score)) FROM %(table)s" +
+                                    if_fromid(" WHERE %(fromfield_column)s=fromtrack.%(fromfield)s") + ")")
                                    % {"table": c.table,
                                       "fromfield": c.fromfield,
                                       "fromfield_column": c.fromfield_column}
                                    for c in self.chains),
-                        ") , 0) AS totalscore",
+                        ", 0) AS totalscore",
                                     
                     "FROM " + if_fromid("track fromtrack, ") + "track totrack",
                     
@@ -102,7 +104,8 @@ class MarkovConductor:
                         #
                         # e.g. LEFT JOIN transition_field_field ON (from_field=fromtrack.field AND to_field=totrack.field)
                         #
-                        " ".join(("LEFT JOIN %(table)s ON (%(table)s.%(tofield_column)s=totrack.%(tofield)s" + if_fromid(" AND %(table)s.%(fromfield_column)s=fromtrack.%(fromfield)s") + ")")
+                        " ".join(("LEFT JOIN %(table)s ON (%(table)s.%(tofield_column)s=totrack.%(tofield)s" +
+                                  if_fromid(" AND %(table)s.%(fromfield_column)s=fromtrack.%(fromfield)s") + ")")
                                  % {"table": c.table,
                                     "fromfield": c.fromfield,
                                     "fromfield_column": c.fromfield_column,
@@ -113,7 +116,7 @@ class MarkovConductor:
                     if_fromid("WHERE fromtrack.trackid=%s" % fromid),
                 ))
             
-            scores = dict((row["totrackid"], math.exp(row["totalscore"]*4)) for row in self.musicdb.db.execute(sql))
+            scores = dict((row["totrackid"], math.exp(row["totalhumanscore"])*math.exp(row["totalscore"]*4)) for row in self.musicdb.db.execute(sql))
             return scores
     
 class MarkovChain:
@@ -142,6 +145,7 @@ class MarkovChain:
                     %(fromfield_column)s INTEGER REFERENCES tracks(%(fromfield)s) NOT NULL,
                     %(tofield_column)s INTEGER REFERENCES tracks(%(tofield)s) NOT NULL,
                     score INTEGER DEFAULT 0,
+                    humanscore INTEGER DEFAULT 0,
                     UNIQUE (%(fromfield_column)s, %(tofield_column)s)
                 )""" % {"table": self.table,
                         "fromfield": self.fromfield,
@@ -149,7 +153,7 @@ class MarkovChain:
                         "tofield": self.tofield,
                         "tofield_column": self.tofield_column})
     
-    def record_transition(self, fromtrackid, totrackid, amount):
+    def record_transition(self, fromtrackid, totrackid, amount=0, human_amount=0):
         with self.musicdb.db:
             row = self.musicdb.db.execute("""
                 SELECT fromtrack.%(fromfield)s, totrack.%(tofield)s
@@ -172,8 +176,8 @@ class MarkovChain:
             # Increment the score of the transition by one
             self.musicdb.db.execute("""
                 UPDATE %(table)s
-                    SET score=score+:amount
+                    SET score=score+:amount, humanscore=humanscore+:human_amount
                     WHERE %(fromfield_column)s=:fromid AND %(tofield_column)s=:toid
                 """ % {"table": self.table, "fromfield_column": self.fromfield_column, "tofield_column": self.tofield_column},
-                {"fromid": fromid, "toid": toid, "amount": amount})
+                {"fromid": fromid, "toid": toid, "amount": amount, "human_amount": human_amount})
     

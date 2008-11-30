@@ -50,16 +50,16 @@ while True:
     
     cmd = read_chr().lower()    
     if cmd == "g":
-        c.score_transition(prev, cur, 2)
+        c.score_transition(prev, cur, human_amount=1)
     elif cmd == "b":
-        c.score_transition(prev, cur, -2)
+        c.score_transition(prev, cur, human_amount=-1)
     elif cmd == "q":
         sys.exit()
     
     # If the last choice wasn't bad, continue to the next track
     if not cmd == "b":
         c.track_change(prev, cur)
-        #prev = cur
+        prev = cur
     
     cur = c.get_next_track(prev)
     
