@@ -63,18 +63,29 @@ class MarkovConductor:
                                           genre_name=d["genre"],
                                           add=True)
             
-    def add_track(self, d):
+    def touch_track(self, d):
+        """Ensure that the specified track exists within the database."""
         self.get_track(d)
         
-    def track_change(self, previous, current):
+    def record_track_change(self, previous, current):
+        """Called when a track transition occurs."""
         prevtrack = self.get_track(previous)
         track = self.get_track(current)
         
         track.record_play()
         if prevtrack:
             self.score_transition_by_id(prevtrack.id, track.id, amount=1)
+            
+    def record_transition_like(self, previous, current):
+        """Called when a user likes a transition."""
+        self.score_transition(previous, current, human_amount=1)
+        
+    def record_transition_dislike(self, previous, current):
+        """Called when a user dislikes a transition."""
+        self.score_transition(previous, current, human_amount=-1)
     
     def score_transition(self, previous, current, amount=0, human_amount=0):
+        """Change the inferred score/human score for a transition by a delta.""" 
         prevtrack = self.get_track(previous)
         track = self.get_track(current)
         self.score_transition_by_id(prevtrack.id, track.id, amount, human_amount)
@@ -83,7 +94,13 @@ class MarkovConductor:
         for chain in self.chains.values():
             chain.record_transition(fromid, toid, amount, human_amount)
         
-    def get_next_track(self, fromtrack=None):
+    def choose_next_track(self, fromtrack=None):
+        """Determine the next track to play via Markov Chain calculation.
+        
+        Returns a dictionary containing the name, album, artist, and genre of the chosen track.
+        
+        """
+        
         fromid = self.get_track(fromtrack).id if fromtrack else None
         toid = self.choose_next_id(fromid)
         
@@ -102,8 +119,8 @@ class MarkovConductor:
         return math.exp(human_score) * math.exp(score*4)
     
     def get_transitions_from_id(self, fromid=None):
-        """
-        Based on a track id, determine the ids and scores of possible following tracks.
+        """Determine the ids and scores of possible following tracks based on the current track id.
+        
         Returns: a dictionary of the form { trackid: score, .. }
         
         """

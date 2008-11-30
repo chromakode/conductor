@@ -33,10 +33,10 @@ for filename in os.listdir(SAMPLEPATH):
                  "album":  "Test",
                  "artist": "Tester",
                  "genre":  "Sample"}
-        c.add_track(track)
+        c.touch_track(track)
 
-prev = c.get_next_track()
-cur = c.get_next_track(prev)
+prev = c.choose_next_track()
+cur = c.choose_next_track(prev)
 cmd = None
 while True:
     os.system("play %s trim 0.1 fade 0 .5 .75" % prev["track"])
@@ -52,17 +52,17 @@ while True:
     
     cmd = read_chr().lower()    
     if cmd == "g":
-        c.score_transition(prev, cur, human_amount=1)
+        c.record_transition_like(prev, cur)
     elif cmd == "b":
-        c.score_transition(prev, cur, human_amount=-1)
+        c.record_transition_dislike(prev, cur)
     elif cmd == "q":
         sys.exit()
     
     # If the last choice wasn't bad, continue to the next track
     if not cmd == "b":
-        c.track_change(prev, cur)
+        c.record_track_change(prev, cur)
         prev = cur
     
-    cur = c.get_next_track(prev)
+    cur = c.choose_next_track(prev)
     
 c.unload()
