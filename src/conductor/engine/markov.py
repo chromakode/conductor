@@ -4,7 +4,7 @@ import math
 import random
 import bisect
 
-from ..musicdb import MusicDB
+from conductor import Conductor
 
 def weighted_choice(weight_dict):
     accum = 0
@@ -18,10 +18,9 @@ def weighted_choice(weight_dict):
     
     return weight_dict.keys()[index]
 
-class MarkovConductor:    
-    
+class MarkovConductor(Conductor):    
     def __init__(self, dbpath):
-        self.musicdb = MusicDB(dbpath)
+        Conductor.__init__(self, dbpath)
         self.chains = {}
         self.weight_func = self._calculate_weight
         
@@ -56,39 +55,16 @@ class MarkovConductor:
             chain.init()
             self.chains[(fromfield, tofield)] = chain
     
-    def get_track(self, d):
-        if d:
-            return self.musicdb.get_track(track_name=d["track"],
-                                          album_name=d["album"],
-                                          artist_name=d["artist"],
-                                          genre_name=d["genre"],
-                                          add=True)
-            
-    def touch_track(self, d):
-        """Ensure that the specified track exists within the database."""
-        self.get_track(d)
-        
-    def record_track_change(self, previous, current):
+    @Conductor._lookup_descs
+    def record_transition(self, fromtrack, totrack):
         """Called when a track transition occurs."""
-        prevtrack = self.get_track(previous)
-        track = self.get_track(current)
-        
-        track.record_play()
-        self.score_transition_by_id(prevtrack.id if prevtrack else None, track.id, amount=1)
-            
-    def record_transition_like(self, previous, current):
-        """Called when a user likes a transition."""
-        self.score_transition(previous, current, human_amount=1)
-        
-    def record_transition_dislike(self, previous, current):
-        """Called when a user dislikes a transition."""
-        self.score_transition(previous, current, human_amount=-1)
+        totrack.record_play()
+        self.score_transition_by_id(fromtrack.id if fromtrack else None, totrack.id, amount=1)
     
-    def score_transition(self, previous, current, amount=0, human_amount=0):
+    @Conductor._lookup_descs
+    def score_transition(self, fromtrack, totrack, amount=0, human_amount=0):
         """Change the inferred score/human score for a transition by a delta.""" 
-        prevtrack = self.get_track(previous)
-        track = self.get_track(current)
-        self.score_transition_by_id(prevtrack.id, track.id, amount, human_amount)
+        self.score_transition_by_id(fromtrack.id, totrack.id, amount, human_amount)
     
     def score_transition_by_id(self, fromid, toid, amount=0, human_amount=0):
         for chain in self.chains.values():

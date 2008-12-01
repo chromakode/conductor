@@ -8,11 +8,13 @@ class MusicDB:
     def __init__(self, path):
         self.path = path
         self.db = None
+        self.history = None
         
     def load(self):
         self.db = sqlite3.connect(self.path, detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
         self.db.row_factory = sqlite3.Row
         self._init_schema()
+        self.history = MusicHistory(self)
         
     def unload(self):
         self.db.commit()
@@ -50,12 +52,6 @@ class MusicDB:
                     added TIMESTAMP,
                     playcount INTEGER DEFAULT 0,
                     UNIQUE(name, albumid, artistid)
-                )""")
-            
-            self.db.execute("""
-                CREATE TABLE IF NOT EXISTS history (
-                    trackid INTEGER PRIMARY KEY,
-                    dateplayed DATE
                 )""")
             
             # TODO: add indexes here?
@@ -128,6 +124,34 @@ class MusicDB:
         track.artist = self._get_thing_by_id("artist", "artistid", track["artistid"], Artist)
         track.genre = self._get_thing_by_id("genre", "genreid", track["genreid"], Genre)
         return track
+
+class MusicHistory:
+    def __init__(self, musicdb):
+        self.musicdb = musicdb
+    
+    def init(self):
+        with self.musicdb.db:
+            self.musicdb.db.execute("""
+                CREATE TABLE IF NOT EXISTS history (
+                    timestamp TIMESTAMP PRIMARY KEY,
+                    fromtrackid INTEGER,
+                    totrackid INTEGER,
+                    humanchoice BOOLEAN,
+                    humanscore INTEGER DEFAULT 0
+                )""")
+            
+    def record_transition(self, fromtrackid, totrackid, humanchoice):
+        with self.musicdb.db:
+            self.musicdb.db.execute("""
+                INSERT
+                    INTO history (timestamp, fromtrackid, totrackid, humanchoice)
+                    VALUES (current_timestamp, :fromtrackid, :totrackid, :humanchoice)
+                """, {"fromtrackid": fromtrackid,
+                      "totrackid": totrackid,
+                      "humanchoice": humanchoice})
+            
+    def score_transition(self, fromtrackid, totrackid, score):
+        pass            
 
 class Thing:
     def __init__(self, musicdb, id, row):

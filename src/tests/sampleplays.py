@@ -14,6 +14,6 @@ tracks = [{"track": "Blue",   "album": "Cold", "artist": "Colors",  "genre": "El
           {"track": "One",    "album": "Low",  "artist": "Numbers", "genre": "Math Rock"}]
 
 for prev, cur in izip([None]+tracks, tracks):
-    c.record_track_change(prev, cur)
+    c.record_transition(prev, cur)
     
 c.unload()
