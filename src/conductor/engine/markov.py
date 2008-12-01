@@ -124,7 +124,7 @@ class MarkovConductor(Conductor):
                         "AS totalscore,",
                         
                         " + ".join(("ifnull(" + 
-                                        "CAST(ifnull(%(table)s.humanscore, 0) AS FLOAT)"
+                                        "ifnull( MAX(-5, MIN(5, %(table)s.humanscore)) , 0)"
                                     ", 0)")
                                    % {"table": c.table}
                                    for c in self.chains.values()),
