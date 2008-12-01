@@ -15,6 +15,7 @@ class MusicDB:
         self.db.row_factory = sqlite3.Row
         self._init_schema()
         self.history = MusicHistory(self)
+        self.history.init()
         
     def unload(self):
         self.db.commit()
@@ -113,8 +114,12 @@ class MusicDB:
                 return None
         
         row = self._get_thing_id("SELECT * FROM track WHERE name = :name AND albumid = :album_id AND artistid = :artist_id",
-                                 "INSERT INTO track (name, albumid, artistid, genreid, added) VALUES (:name, :album_id, :artist_id, :genre_id, current_timestamp)", 
-                                 add, {"name": track_name, "album_id": album.id, "artist_id": artist.id, "genre_id": (genre.id if genre_name else None)})
+                                 "INSERT INTO track (name, albumid, artistid, genreid, added) VALUES (:name, :album_id, :artist_id, :genre_id, :now)", 
+                                 add, {"name": track_name,
+                                       "album_id": album.id,
+                                       "artist_id": artist.id,
+                                       "genre_id": (genre.id if genre_name else None),
+                                       "now": datetime.datetime.now()})
         if row:
             return Track(self, row["trackid"], row, album, artist, genre)
         
@@ -136,22 +141,28 @@ class MusicHistory:
                     timestamp TIMESTAMP PRIMARY KEY,
                     fromtrackid INTEGER,
                     totrackid INTEGER,
-                    humanchoice BOOLEAN,
-                    humanscore INTEGER DEFAULT 0
+                    userchoice BOOLEAN,
+                    userscore INTEGER DEFAULT 0
                 )""")
             
-    def record_transition(self, fromtrackid, totrackid, humanchoice):
+    def record_transition(self, fromtrackid, totrackid, userchoice):
         with self.musicdb.db:
             self.musicdb.db.execute("""
                 INSERT
-                    INTO history (timestamp, fromtrackid, totrackid, humanchoice)
-                    VALUES (current_timestamp, :fromtrackid, :totrackid, :humanchoice)
+                    INTO history (timestamp, fromtrackid, totrackid, userchoice)
+                    VALUES (:now, :fromtrackid, :totrackid, :userchoice)
                 """, {"fromtrackid": fromtrackid,
                       "totrackid": totrackid,
-                      "humanchoice": humanchoice})
+                      "userchoice": userchoice,
+                      "now": datetime.datetime.now()})
             
-    def score_transition(self, fromtrackid, totrackid, score):
-        pass            
+    def record_user_feedback(self, userscore):
+        with self.musicdb.db:
+            self.musicdb.db.execute("""
+                UPDATE history
+                    SET userscore=:userscore
+                    WHERE timestamp=(SELECT MAX(timestamp) FROM history)
+                """, {"userscore": userscore})
 
 class Thing:
     def __init__(self, musicdb, id, row):
@@ -175,5 +186,5 @@ class Track(Thing):
         
     def record_play(self):
         with self.musicdb.db:
-            self.musicdb.db.execute("UPDATE track SET playcount=playcount+1, lastplayed=current_timestamp WHERE trackid=:id;", 
-                                    {"id": self.id})
+            self.musicdb.db.execute("UPDATE track SET playcount=playcount+1, lastplayed=:now WHERE trackid=:id;", 
+                                    {"id": self.id, "now": datetime.datetime.now()})

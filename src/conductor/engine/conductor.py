@@ -2,8 +2,8 @@ from ..musicdb import MusicDB
 
 def _lookup_descs(f):
     """Performs database lookups foe each track description in the arguments, and calls the decorated method with a list of database Track instances.""" 
-    def f_tracks(self, *descs, **kwargs):
-        f(self, *[self.get_track(desc) for desc in descs], **kwargs)
+    def f_tracks(self, fromdesc, todesc, *args, **kwargs):
+        f(self, self.get_track(fromdesc), self.get_track(todesc), *args, **kwargs)
     return f_tracks
 
 class Conductor:
@@ -23,15 +23,12 @@ class Conductor:
         """Ensure that the specified track exists within the database."""
         self.get_track(d)
 
-    def record_transition(self, fromtrack, totrack):
+    def record_transition(self, fromtrack, totrack, userchoice):
         """Called when a track transition occurs."""
         totrack.record_play()
+        self.musicdb.history.record_transition(fromtrack.id if fromtrack else None, totrack.id, userchoice)
         self.last_transition = (fromtrack, totrack)
     
-    def record_transition_like(self):
-        """Called when a user likes a transition."""
-        pass
-            
-    def record_transition_dislike(self):
-        """Called when a user dislikes a transition."""
-        pass
+    def record_user_feedback(self, liked):
+        """Called when a user likes or dislikes a transition."""
+        self.musicdb.history.record_user_feedback(1 if liked else -1)

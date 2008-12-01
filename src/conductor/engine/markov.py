@@ -56,28 +56,19 @@ class MarkovConductor(Conductor):
             self.chains[(fromfield, tofield)] = chain
     
     @_lookup_descs
-    def record_transition(self, fromtrack, totrack):
-        Conductor.record_transition(self, fromtrack, totrack)
-        self.score_transition_by_id(fromtrack.id if fromtrack else None, totrack.id, amount=1)
+    def record_transition(self, fromtrack, totrack, userchoice=True):
+        Conductor.record_transition(self, fromtrack, totrack, userchoice)
+        self.score_transition(fromtrack, totrack, amount=1)
     
-    def record_transition_like(self):
-        """Called when a user likes a transition."""
-        Conductor.record_transition_like()
-        self.score_transition(human_amount=1, *self.last_transition)
-        
-    def record_transition_dislike(self):
-        """Called when a user dislikes a transition."""
-        Conductor.record_transition_dislike()
-        self.score_transition(human_amount=-1, *self.last_transition)
+    def record_user_feedback(self, liked):
+        """Called when a user likes or dislikes a transition."""
+        Conductor.record_user_feedback(self, liked)
+        self.score_transition(user_amount=(1 if liked else -1), *self.last_transition)
     
-    @_lookup_descs
-    def score_transition(self, fromtrack, totrack, amount=0, human_amount=0):
-        """Change the inferred score/human score for a transition by a delta.""" 
-        self.score_transition_by_id(fromtrack.id, totrack.id, amount, human_amount)
-    
-    def score_transition_by_id(self, fromid, toid, amount=0, human_amount=0):
+    def score_transition(self, fromtrack, totrack, amount=0, user_amount=0):
+        """Change the inferred score/user score for a transition by a delta."""
         for chain in self.chains.values():
-            chain.record_transition(fromid, toid, amount, human_amount)
+            chain.record_transition(fromtrack.id if fromtrack else None, totrack.id, amount, user_amount)
         
     def choose_next_track(self, fromtrack=None):
         """Determine the next track to play via Markov Chain calculation.
@@ -99,9 +90,9 @@ class MarkovConductor(Conductor):
     def choose_next_id(self, fromid=None):
         return weighted_choice(self.get_transitions_from_id(fromid))
     
-    def _calculate_weight(self, score, human_score):
-        """Calculate a weighting based on an inferred score and human-specified score"""
-        return math.exp(human_score) * math.exp(score*4)
+    def _calculate_weight(self, score, user_score):
+        """Calculate a weighting based on an inferred score and user-specified score"""
+        return math.exp(user_score) * math.exp(score*4)
     
     def get_transitions_from_id(self, fromid=None):
         """Determine the ids and scores of possible following tracks based on the current track id.
@@ -133,11 +124,11 @@ class MarkovConductor(Conductor):
                         "AS totalscore,",
                         
                         " + ".join(("ifnull(" + 
-                                        "ifnull( MAX(-5, MIN(5, %(table)s.humanscore)) , 0)"
+                                        "ifnull( MAX(-5, MIN(5, %(table)s.userscore)) , 0)"
                                     ", 0)")
                                    % {"table": c.table}
                                    for c in self.chains.values()),
-                        "AS totalhumanscore",
+                        "AS totaluserscore",
                                     
                     "FROM " + if_fromid("track fromtrack, ") + "track totrack",
                     
@@ -158,7 +149,7 @@ class MarkovConductor(Conductor):
                     if_fromid("WHERE fromtrack.trackid=%s" % fromid),
                 ))
             
-            scores = dict((row["totrackid"], self.weight_func(row["totalscore"], row["totalhumanscore"])) for row in self.musicdb.db.execute(sql))
+            scores = dict((row["totrackid"], self.weight_func(row["totalscore"], row["totaluserscore"])) for row in self.musicdb.db.execute(sql))
             return scores
     
 class MarkovChain:
@@ -193,7 +184,7 @@ class MarkovChain:
                     %(fromfield_column)s INTEGER REFERENCES track(%(fromfield)s),
                     %(tofield_column)s INTEGER REFERENCES track(%(tofield)s) NOT NULL,
                     score INTEGER DEFAULT 0,
-                    humanscore INTEGER DEFAULT 0,
+                    userscore INTEGER DEFAULT 0,
                     PRIMARY KEY (%(fromfield_column)s, %(tofield_column)s)
                 )""" % {"table": self.table,
                         "fromfield": self.fromfield,
@@ -214,7 +205,7 @@ class MarkovChain:
         with self.musicdb.db:
             self.musicdb.db.execute("DELETE FROM %(table)s" % {"table": self.table})
     
-    def record_transition(self, fromtrackid, totrackid, amount=0, human_amount=0):
+    def record_transition(self, fromtrackid, totrackid, amount=0, user_amount=0):
         def get_field(trackid, field):
             return self.musicdb.get_track_by_id(trackid)[field];
        
@@ -237,8 +228,8 @@ class MarkovChain:
             # Increment the score of the transition by one
             self.musicdb.db.execute("""
                 UPDATE %(table)s
-                    SET score=score+:amount, humanscore=humanscore+:human_amount
+                    SET score=score+:amount, userscore=userscore+:user_amount
                     WHERE %(fromfield_column)s=:fromid AND %(tofield_column)s=:toid
                 """ % {"table": self.table, "fromfield_column": self.fromfield_column, "tofield_column": self.tofield_column},
-                {"fromid": fromid, "toid": toid, "amount": amount, "human_amount": human_amount})
+                {"fromid": fromid, "toid": toid, "amount": amount, "user_amount": user_amount})
     

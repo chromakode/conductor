@@ -5,6 +5,7 @@ import os
 import tty
 
 SAMPLEPATH = sys.argv[1]
+PLAYCMD = "play -q %s trim 0.1 fade 0 .5 .75"
 
 from conductor.engine.markov import MarkovConductor
 
@@ -40,13 +41,17 @@ def main():
     load_files(c)
     
     prev = c.choose_next_track()
+    c.record_transition(None, prev)
     cur = c.choose_next_track(prev)
+    
     cmd = None
     playcount = 0
     while True:
+        c.record_transition(prev, cur, False)
+        
         if playcount == 0:
-            os.system("play %s trim 0.1 fade 0 .5 .75" % prev["track"])
-        os.system("play %s trim 0.1 fade 0 .5 .75" % cur["track"])
+            os.system(PLAYCMD % prev["track"])
+        os.system(PLAYCMD % cur["track"])
         
         print
         previd = c.get_track(prev).id
@@ -61,9 +66,9 @@ def main():
         else:
             cmd = read_chr().lower()
             if cmd == "g":
-                c.record_transition_like(prev, cur)
+                c.record_user_feedback(True)
             elif cmd == "b":
-                c.record_transition_dislike(prev, cur)
+                c.record_user_feedback(False)
             elif cmd == "p":
                 playcount = 10
             elif cmd == "q":
@@ -71,7 +76,6 @@ def main():
         
         # If the last choice wasn't bad, continue to the next track
         if not cmd == "b":
-            c.record_transition(prev, cur)
             prev = cur
         
         cur = c.choose_next_track(prev)
