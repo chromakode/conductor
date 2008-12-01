@@ -38,8 +38,10 @@ for filename in os.listdir(SAMPLEPATH):
 prev = c.choose_next_track()
 cur = c.choose_next_track(prev)
 cmd = None
+playcount = 0
 while True:
-    os.system("play %s trim 0.1 fade 0 .5 .75" % prev["track"])
+    if playcount == 0:
+        os.system("play %s trim 0.1 fade 0 .5 .75" % prev["track"])
     os.system("play %s trim 0.1 fade 0 .5 .75" % cur["track"])
     
     print
@@ -50,13 +52,18 @@ while True:
     scores = c.get_transitions_from_id(previd)
     print_histogram(scores)
     
-    cmd = read_chr().lower()    
-    if cmd == "g":
-        c.record_transition_like(prev, cur)
-    elif cmd == "b":
-        c.record_transition_dislike(prev, cur)
-    elif cmd == "q":
-        sys.exit()
+    if playcount > 0:
+        playcount -= 1
+    else:
+        cmd = read_chr().lower()
+        if cmd == "g":
+            c.record_transition_like(prev, cur)
+        elif cmd == "b":
+            c.record_transition_dislike(prev, cur)
+        elif cmd == "p":
+            playcount = 10
+        elif cmd == "q":
+            sys.exit()
     
     # If the last choice wasn't bad, continue to the next track
     if not cmd == "b":
