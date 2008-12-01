@@ -84,7 +84,7 @@ class MarkovConductor(Conductor):
         return {"track":  totrack["name"],
                 "album":  totrack.album["name"],
                 "artist": totrack.artist["name"],
-                "genre":  totrack.genre["name"]}
+                "genre":  totrack.genre["name"] if totrack.genre else ""}
         
     
     def choose_next_id(self, fromid=None):

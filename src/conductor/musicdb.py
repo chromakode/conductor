@@ -112,6 +112,8 @@ class MusicDB:
             genre = self.get_genre(genre_name, add)
             if not genre:
                 return None
+        else:
+            genre = None
         
         row = self._get_thing_id("SELECT * FROM track WHERE name = :name AND albumid = :album_id AND artistid = :artist_id",
                                  "INSERT INTO track (name, albumid, artistid, genreid, added) VALUES (:name, :album_id, :artist_id, :genre_id, :now)", 
