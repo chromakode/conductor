@@ -4,7 +4,7 @@ import math
 import random
 import bisect
 
-from conductor import Conductor
+from conductor import Conductor, _lookup_descs
 
 def weighted_choice(weight_dict):
     accum = 0
@@ -55,13 +55,22 @@ class MarkovConductor(Conductor):
             chain.init()
             self.chains[(fromfield, tofield)] = chain
     
-    @Conductor._lookup_descs
+    @_lookup_descs
     def record_transition(self, fromtrack, totrack):
-        """Called when a track transition occurs."""
-        totrack.record_play()
+        Conductor.record_transition(self, fromtrack, totrack)
         self.score_transition_by_id(fromtrack.id if fromtrack else None, totrack.id, amount=1)
     
-    @Conductor._lookup_descs
+    def record_transition_like(self):
+        """Called when a user likes a transition."""
+        Conductor.record_transition_like()
+        self.score_transition(human_amount=1, *self.last_transition)
+        
+    def record_transition_dislike(self):
+        """Called when a user dislikes a transition."""
+        Conductor.record_transition_dislike()
+        self.score_transition(human_amount=-1, *self.last_transition)
+    
+    @_lookup_descs
     def score_transition(self, fromtrack, totrack, amount=0, human_amount=0):
         """Change the inferred score/human score for a transition by a delta.""" 
         self.score_transition_by_id(fromtrack.id, totrack.id, amount, human_amount)
