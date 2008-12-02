@@ -18,7 +18,13 @@ class Conductor:
                                           artist_name=desc["artist"],
                                           genre_name=desc["genre"],
                                           add=True)
-                       
+
+    def get_desc(self, track):
+        return {"title":  track["name"],
+                "album":  track.album["name"],
+                "artist": track.artist["name"],
+                "genre":  track.genre["name"] if track.genre else ""}
+            
     def touch_track(self, d):
         """Ensure that the specified track exists within the database."""
         self.get_track(d)

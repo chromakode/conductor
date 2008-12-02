@@ -81,11 +81,7 @@ class MarkovConductor(Conductor):
         toid = self.choose_next_id(fromid)
         
         totrack = self.musicdb.get_track_by_id(toid)
-        return {"title":  totrack["name"],
-                "album":  totrack.album["name"],
-                "artist": totrack.artist["name"],
-                "genre":  totrack.genre["name"] if totrack.genre else ""}
-        
+        return self.get_desc(totrack)
     
     def choose_next_id(self, fromid=None):
         return weighted_choice(self.get_transitions_from_id(fromid))
