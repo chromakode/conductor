@@ -26,7 +26,7 @@ def print_histogram(score_dict):
 def load_files(c):
     for filename in os.listdir(SAMPLEPATH):
         if filename.endswith(".wav"):
-            track = {"track":  os.path.join(SAMPLEPATH, filename),
+            track = {"title":  os.path.join(SAMPLEPATH, filename),
                      "album":  "Test",
                      "artist": "Tester",
                      "genre":  "Sample"}
@@ -50,8 +50,8 @@ def main():
         c.record_transition(prev, cur, False)
         
         if playcount == 0:
-            os.system(PLAYCMD % prev["track"])
-        os.system(PLAYCMD % cur["track"])
+            os.system(PLAYCMD % prev["title"])
+        os.system(PLAYCMD % cur["title"])
         
         print
         previd = c.get_track(prev).id

@@ -13,12 +13,12 @@ class Conductor:
     
     def get_track(self, desc):
         if desc:
-            return self.musicdb.get_track(track_name=desc["track"],
+            return self.musicdb.get_track(track_name=desc["title"],
                                           album_name=desc["album"],
                                           artist_name=desc["artist"],
                                           genre_name=desc["genre"],
                                           add=True)
-            
+                       
     def touch_track(self, d):
         """Ensure that the specified track exists within the database."""
         self.get_track(d)

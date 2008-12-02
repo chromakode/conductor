@@ -81,7 +81,7 @@ class MarkovConductor(Conductor):
         toid = self.choose_next_id(fromid)
         
         totrack = self.musicdb.get_track_by_id(toid)
-        return {"track":  totrack["name"],
+        return {"title":  totrack["name"],
                 "album":  totrack.album["name"],
                 "artist": totrack.artist["name"],
                 "genre":  totrack.genre["name"] if totrack.genre else ""}

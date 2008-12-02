@@ -41,7 +41,7 @@ class Library:
                     f = tagpy.FileRef(path)
                     tag = f.tag()
                     
-                    desc = {"track":  tag.title,
+                    desc = {"title":  tag.title,
                             "album":  tag.album,
                             "artist": tag.artist,
                             "genre":  tag.genre}
