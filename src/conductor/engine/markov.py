@@ -60,12 +60,23 @@ class MarkovConductor(Conductor):
     def init_chain(self, fromfield, tofield):
         _log.info("Initializing chain: %s -> %s.", fromfield, tofield)
         if not (fromfield, tofield) in self.chains:
+            self.musicdb.execute("""
+                INSERT OR IGNORE
+                    INTO chain (fromfield, tofield)
+                    VALUES (:fromfield, :tofield)
+                """, {"fromfield": fromfield, "tofield": tofield})
+            
             chain = MarkovChain(self.musicdb, fromfield, tofield)
             chain.init()
             self.chains[fromfield, tofield] = chain
     
     def delete_chain(self, fromfield, tofield):
         if (fromfield, tofield) in self.chains:
+            self.musicdb.execute("""
+                DELETE FROM chain
+                WHERE fromfield=:fromfield AND tofield=:tofield
+                """, {"fromfield": fromfield, "tofield": tofield})
+            
             self.chains[fromfield, tofield].delete()
             del self.chains[fromfield, tofield]
     
@@ -187,13 +198,7 @@ class MarkovChain:
     
     def init(self):
         _log.debug("Initializing chain schema: %s -> %s.", self.fromfield, self.tofield)
-        with self.musicdb.db:
-            self.musicdb.execute("""
-                INSERT OR IGNORE
-                    INTO chain (fromfield, tofield)
-                    VALUES (:fromfield, :tofield)
-                """, {"fromfield": self.fromfield, "tofield": self.tofield})
-                        
+        with self.musicdb.db:                     
             self.musicdb.execute("""
                 CREATE TABLE IF NOT EXISTS %(table)s (
                     %(fromfield_column)s INTEGER REFERENCES track(%(fromfield)s),
@@ -211,11 +216,6 @@ class MarkovChain:
         _log.debug("Deleting chain schema: %s -> %s.", self.fromfield, self.tofield)
         with self.musicdb.db:
             self.musicdb.execute("DROP TABLE %(table)s" % {"table": self.table})
-            
-            self.musicdb.execute("""
-                DELETE FROM chain
-                WHERE fromfield=:fromfield AND tofield=:tofield
-                """, {"fromfield": self.fromfield, "tofield": self.tofield})
         
     def reset(self):
         _log.debug("Clearing chain data: %s -> %s.", self.fromfield, self.tofield)
