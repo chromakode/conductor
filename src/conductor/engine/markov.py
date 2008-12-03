@@ -62,7 +62,12 @@ class MarkovConductor(Conductor):
         if not (fromfield, tofield) in self.chains:
             chain = MarkovChain(self.musicdb, fromfield, tofield)
             chain.init()
-            self.chains[(fromfield, tofield)] = chain
+            self.chains[fromfield, tofield] = chain
+    
+    def delete_chain(self, fromfield, tofield):
+        if (fromfield, tofield) in self.chains:
+            self.chains[fromfield, tofield].delete()
+            del self.chains[fromfield, tofield]
     
     @_lookup_descs
     def record_transition(self, fromtrack, totrack, userchoice=True):
