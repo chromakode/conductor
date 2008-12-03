@@ -1,6 +1,9 @@
 import sys
 sys.path.append(".")
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 from conductor import musicdb
 
 db = musicdb.MusicDB("/tmp/musicdb-test.db")

@@ -1,3 +1,6 @@
+import logging
+_log = logging.getLogger("conductor.conductor")
+
 from ..musicdb import MusicDB
 
 def _lookup_descs(f):
@@ -27,6 +30,8 @@ class Conductor:
             
     def touch_track(self, d):
         """Ensure that the specified track exists within the database."""
+        
+        _log.info("Touching track \"%s\" from \"%s\" by \"%s\".", d["title"], d["album"], d["artist"])
         self.get_track(d)
 
     def record_transition(self, fromtrack, totrack, userchoice):

@@ -1,11 +1,12 @@
 import sys
 sys.path.append(".")
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 import os
 import tty
-
 import tagpy
-
 from conductor.engine.markov import MarkovConductor
 
 MUSICDIRS = sys.argv[1:]

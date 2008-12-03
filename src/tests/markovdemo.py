@@ -1,6 +1,9 @@
 import sys
 sys.path.append(".")
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 import os
 import tty
 

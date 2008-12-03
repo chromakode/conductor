@@ -1,10 +1,13 @@
 from __future__ import with_statement
 
+import logging
 import math
 import random
 import bisect
 
 from conductor import Conductor, _lookup_descs
+
+_log = logging.getLogger("conductor.markov")
 
 def weighted_choice(weight_dict):
     accum = 0
@@ -25,12 +28,15 @@ class MarkovConductor(Conductor):
         self.weight_func = self._calculate_weight
         
     def load(self):
+        _log.info("Loading MarkovConductor.")
+        
         self.musicdb.load()
         self.init()
         
         with self.musicdb.db:
-            chains = self.musicdb.db.execute("SELECT * FROM chain").fetchall()
+            chains = self.musicdb.execute("SELECT * FROM chain").fetchall()
         
+        _log.info("Initializing chains.")
         for row in chains:
             # Note: we must convert the row values to ASCII strings (from unicode strings)
             self.init_chain(str(row["fromfield"]), str(row["tofield"]))
@@ -39,8 +45,10 @@ class MarkovConductor(Conductor):
         self.musicdb.unload()
         
     def init(self):
+        _log.info("Initializing schema.")
+        
         with self.musicdb.db:
-            self.musicdb.db.execute("""
+            self.musicdb.execute("""
                 CREATE TABLE IF NOT EXISTS chain (
                     fromfield TEXT NOT NULL,
                     tofield TEXT NOT NULL,
@@ -50,6 +58,7 @@ class MarkovConductor(Conductor):
                 )""")
     
     def init_chain(self, fromfield, tofield):
+        _log.info("Initializing chain: %s -> %s.", fromfield, tofield)
         if not (fromfield, tofield) in self.chains:
             chain = MarkovChain(self.musicdb, fromfield, tofield)
             chain.init()
@@ -57,6 +66,7 @@ class MarkovConductor(Conductor):
     
     @_lookup_descs
     def record_transition(self, fromtrack, totrack, userchoice=True):
+        _log.info("Recording transition from %s to %s.", fromtrack.id if fromtrack else "[No track]", totrack.id)
         Conductor.record_transition(self, fromtrack, totrack, userchoice)
         self.score_transition(fromtrack, totrack, amount=1)
     
@@ -99,6 +109,7 @@ class MarkovConductor(Conductor):
         def if_fromid(truestr, falsestr=""):
             return truestr if fromid else falsestr
         
+        _log.info("Calculating transitions from track id %s...", fromid)
         with self.musicdb.db:
             sql = " ".join((
                 "SELECT totrack.trackid AS totrackid,",
@@ -145,7 +156,9 @@ class MarkovConductor(Conductor):
                     if_fromid("WHERE fromtrack.trackid=%s" % fromid),
                 ))
             
-            scores = dict((row["totrackid"], self.weight_func(row["totalscore"], row["totaluserscore"])) for row in self.musicdb.db.execute(sql))
+            scores = dict((row["totrackid"], self.weight_func(row["totalscore"], row["totaluserscore"])) for row in self.musicdb.execute(sql))
+            
+            _log.debug("Calculated scores for track id %s: %s.", fromid, repr(scores))
             return scores
     
 class MarkovChain:
@@ -168,14 +181,15 @@ class MarkovChain:
         return "to_"+self.tofield
     
     def init(self):
+        _log.debug("Initializing chain schema: %s -> %s.", self.fromfield, self.tofield)
         with self.musicdb.db:
-            self.musicdb.db.execute("""
+            self.musicdb.execute("""
                 INSERT OR IGNORE
                     INTO chain (fromfield, tofield)
                     VALUES (:fromfield, :tofield)
                 """, {"fromfield": self.fromfield, "tofield": self.tofield})
                         
-            self.musicdb.db.execute("""
+            self.musicdb.execute("""
                 CREATE TABLE IF NOT EXISTS %(table)s (
                     %(fromfield_column)s INTEGER REFERENCES track(%(fromfield)s),
                     %(tofield_column)s INTEGER REFERENCES track(%(tofield)s) NOT NULL,
@@ -189,21 +203,25 @@ class MarkovChain:
                         "tofield_column": self.tofield_column})
             
     def delete(self):
+        _log.debug("Deleting chain schema: %s -> %s.", self.fromfield, self.tofield)
         with self.musicdb.db:
-            self.musicdb.db.execute("DROP TABLE %(table)s" % {"table": self.table})
+            self.musicdb.execute("DROP TABLE %(table)s" % {"table": self.table})
             
-            self.musicdb.db.execute("""
+            self.musicdb.execute("""
                 DELETE FROM chain
-                WHERE fromfield=:fromfield, tofield=:tofield
+                WHERE fromfield=:fromfield AND tofield=:tofield
                 """, {"fromfield": self.fromfield, "tofield": self.tofield})
         
     def reset(self):
+        _log.debug("Clearing chain data: %s -> %s.", self.fromfield, self.tofield)
         with self.musicdb.db:
-            self.musicdb.db.execute("DELETE FROM %(table)s" % {"table": self.table})
+            self.musicdb.execute("DELETE FROM %(table)s" % {"table": self.table})
     
     def record_transition(self, fromtrackid, totrackid, amount=0, user_amount=0):
         def get_field(trackid, field):
             return self.musicdb.get_track_by_id(trackid)[field];
+       
+        _log.debug("Recording transition (%s -> %s) from track %s to %s.", self.fromfield, self.tofield, fromtrackid, totrackid)
        
         with self.musicdb.db:
             if fromtrackid:
@@ -214,7 +232,7 @@ class MarkovChain:
             toid = get_field(totrackid, self.tofield)
 
             # "Touch" the transition entry to ensure that it exists
-            self.musicdb.db.execute("""
+            self.musicdb.execute("""
                 INSERT OR IGNORE
                     INTO %(table)s (%(fromfield_column)s, %(tofield_column)s)
                     VALUES (:fromid, :toid)
@@ -222,7 +240,7 @@ class MarkovChain:
                 {"fromid": fromid, "toid": toid})
             
             # Increment the score of the transition by one
-            self.musicdb.db.execute("""
+            self.musicdb.execute("""
                 UPDATE %(table)s
                     SET score=score+:amount, userscore=userscore+:user_amount
                     WHERE %(fromfield_column)s=:fromid AND %(tofield_column)s=:toid
