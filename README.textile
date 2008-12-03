@@ -1,6 +1,6 @@
 h1. Conductor
 
-The *train*able music *engine* that *tracks* your listening preferences.
+The (currently very hacky) trainable music engine that tracks your listening preferences.
 
 h2. ABOUT
 
