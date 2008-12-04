@@ -10,7 +10,8 @@ PLAYCMD = "play -q %s trim 0.1 fade 0 .5 .75"
 
 def load_files(c, path):
     for filename in os.listdir(path):
-        if filename.endswith(".wav"):
+        ext = os.path.splitext(filename)[1]
+        if ext in (".wav", ".mp3", ".ogg"):
             track = {"title":  filename,
                      "album":  "Test",
                      "artist": "Tester",
