@@ -90,7 +90,7 @@ class MarkovConductor(Conductor):
     
     def record_transition(self, fromtrack, totrack, userchoice=True):
         fromtrack, totrack = self._lookup_tracks(fromtrack, totrack)
-        _log.info("Recording transition from %s to %s.", fromtrack.id if fromtrack else "[No track]", totrack.id)
+        _log.info("Recording transition from track %s to %s.", fromtrack.id if fromtrack else "[No track]", totrack.id)
         
         Conductor.record_transition(self, fromtrack, totrack, userchoice)
         self.score_transition(fromtrack, totrack, amount=1)

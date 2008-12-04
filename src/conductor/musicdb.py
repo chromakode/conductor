@@ -28,7 +28,7 @@ class MusicDB:
         self.db.close()
         
     def execute(self, sql, *params):
-        _log.debug("Executing SQL: {%s} (%s)", sql, repr(params))
+        _log.debug("Executing SQL: {%s} %s", sql, repr(params))
         return self.db.execute(sql, *params)
     
     def _init_schema(self):
@@ -111,7 +111,7 @@ class MusicDB:
             return Genre(self, row["genreid"], row)
            
     def get_track(self, track_name, album_name, artist_name, genre_name=None, add=False):
-        _log.info("Retrieving track info for \"%s\" from \"%s\" by \"%s\".", track_name, album_name, artist_name)
+        _log.info("Retrieving track info for \"%s\" from \"%s\" by \"%s\"...", track_name, album_name, artist_name)
         
         album = self.get_album(album_name, add)
         if not album:
@@ -136,10 +136,11 @@ class MusicDB:
                                        "genre_id": (genre.id if genre_name else None),
                                        "now": datetime.datetime.now()})
         if row:
+            _log.info("Retrieved track info for \"%s\" from \"%s\" by \"%s\" (id %s).", track_name, album_name, artist_name, row["trackid"])
             return Track(self, row["trackid"], row, album, artist, genre)
         
     def get_track_by_id(self, track_id):
-        _log.info("Retrieving track info with id %s.", track_id)
+        _log.info("Retrieving track info with id %s...", track_id)
         
         track = self._get_thing_by_id("track", "trackid", track_id, Track)
         track.album = self._get_thing_by_id("album", "albumid", track["albumid"], Album)
