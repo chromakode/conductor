@@ -2,30 +2,17 @@ import sys
 sys.path.append(".")
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 
 import os
-import tty
 import tagpy
+
 from conductor.engine.markov import MarkovConductor
+from utils import read_chr, print_histogram
 
 MUSICDIRS = sys.argv[1:]
 PLAYCMD = "play -q \"%s\""
 PLAYPREV = False
-
-def read_chr():
-    old_settings = tty.tcgetattr(sys.stdin.fileno())
-    tty.setraw(sys.stdin, tty.TCSANOW)
-    chr = sys.stdin.read(1)
-    tty.tcsetattr(sys.stdin.fileno(), tty.TCSADRAIN, old_settings)
-    
-    return chr
-
-def print_histogram(conductor, score_dict):
-    max_score = max(score_dict.values())
-    total = sum(score_dict.values())
-    for id, score in score_dict.iteritems():
-        print "%4d [%20.20s]: %5.2f (%5.2f) %s" % (id, conductor.musicdb.get_track_by_id(id)["name"], score, 100*score/total, "-"*int(50*(score/max_score)))
 
 class Library:
     def __init__(self, conductor):
@@ -50,7 +37,7 @@ class Library:
                     self.tracks[tuple(desc.values())] = path
                     self.conductor.touch_track(desc)
            
-    def get_track(self, desc):
+    def get_track_path(self, desc):
         return self.tracks[tuple(desc.values())]
 
 def main():   
@@ -71,17 +58,15 @@ def main():
     cmd = None
     playcount = 0
     while True:
-        print cur, library.get_track(cur)
         c.record_transition(prev, cur, False)
         
         if PLAYPREV and playcount == 0:
-            os.system(PLAYCMD % library.get_track(prev))
-        os.system(PLAYCMD % library.get_track(cur))
+            os.system(PLAYCMD % library.get_track_path(prev))
+        os.system(PLAYCMD % library.get_track_path(cur))
         
         print
         previd = c.get_track(prev).id
-        curid = c.get_track(cur).id
-        print "%s -> %s" % (previd, curid)
+        print "%s -> %s" % (prev["title"], cur["title"])
         print "---"
         scores = c.get_transitions_from_id(previd)
         print_histogram(c, scores)
