@@ -129,7 +129,7 @@ class MarkovConductor(Conductor):
     def choose_next_id(self, fromid=None):
         return weighted_choice(self.get_transitions_from_id(fromid))
     
-    def _calculate_weight(self, score, user_score):
+    def _calculate_weight(self, conductor, score, user_score):
         """Calculate a weighting based on an inferred score and user-specified score"""
         return math.exp(user_score) * math.exp(score*4)
     
@@ -196,7 +196,7 @@ class MarkovConductor(Conductor):
             
             scores = {}
             for row in self.musicdb.execute(sql):
-                scores[row["totrackid"]] = self.config["weight_function"](row["totalscore"], row["totaluserscore"])
+                scores[row["totrackid"]] = self.config["weight_function"](self, row["totalscore"], row["totaluserscore"])
             
             _log.debug("Calculated scores for track id %s: %s.", fromid, repr(scores))
             return scores
