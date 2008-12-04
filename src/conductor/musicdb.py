@@ -157,8 +157,8 @@ class MusicHistory:
             self.musicdb.execute("""
                 CREATE TABLE IF NOT EXISTS history (
                     timestamp TIMESTAMP PRIMARY KEY,
-                    fromtrackid INTEGER,
-                    totrackid INTEGER,
+                    fromtrackid INTEGER REFERENCES track(trackid),
+                    totrackid INTEGER REFERENCES track(trackid),
                     userchoice BOOLEAN,
                     userscore INTEGER DEFAULT 0
                 )""")
