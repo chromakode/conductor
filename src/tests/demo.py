@@ -1,16 +1,12 @@
 import sys
 sys.path.append(".")
 
-import logging
-#logging.basicConfig(level=logging.DEBUG)
-
 import os
 import tagpy
 
 from conductor.engine.markov import MarkovConductor
-from utils import read_chr, print_histogram
+from utils import run_demo, read_chr, print_histogram
 
-MUSICDIRS = sys.argv[1:]
 PLAYCMD = "play -q \"%s\""
 PLAYPREV = False
 
@@ -40,7 +36,7 @@ class Library:
     def get_track_path(self, desc):
         return self.tracks[tuple(desc.values())]
 
-def main():   
+def main(args):   
     c = MarkovConductor("/tmp/conductor-demo.db")
     c.load()
     c.init_chain("trackid", "trackid")
@@ -48,7 +44,7 @@ def main():
     c.init_chain("artistid", "artistid")
     
     library = Library(c)
-    for dir in MUSICDIRS:
+    for dir in args:
         library.load_files(dir)
     
     prev = c.choose_next_track()
@@ -93,4 +89,4 @@ def main():
     c.unload()
     
 if __name__ == "__main__":
-    main()
+    run_demo(main)

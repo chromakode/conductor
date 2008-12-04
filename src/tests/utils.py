@@ -1,5 +1,16 @@
 import sys
 import tty
+import logging
+
+def run_demo(demofunc):
+    # Handle a verbosity flag
+    if len(sys.argv) > 1 and sys.argv[1] == "-v":
+        logging.basicConfig(level=logging.DEBUG)
+        args = sys.argv[2:]
+    else:
+        args = sys.argv[1:]
+        
+    demofunc(args)
 
 def read_chr():
     old_settings = tty.tcgetattr(sys.stdin.fileno())

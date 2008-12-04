@@ -1,19 +1,15 @@
 import sys
 sys.path.append(".")
 
-import logging
-#logging.basicConfig(level=logging.DEBUG)
-
 import os
 
-SAMPLEPATH = sys.argv[1]
+from conductor.engine.markov import MarkovConductor
+from utils import run_demo, read_chr, print_histogram
+
 PLAYCMD = "play -q %s trim 0.1 fade 0 .5 .75"
 
-from conductor.engine.markov import MarkovConductor
-from utils import read_chr, print_histogram
-
-def load_files(c):
-    for filename in os.listdir(SAMPLEPATH):
+def load_files(c, path):
+    for filename in os.listdir(path):
         if filename.endswith(".wav"):
             track = {"title":  filename,
                      "album":  "Test",
@@ -21,12 +17,14 @@ def load_files(c):
                      "genre":  "Sample"}
             c.touch_track(track)
 
-def main():   
+def main(args):
+    sample_path = args[0]
+    
     c = MarkovConductor("/tmp/conductor-markov-demo.db")
     c.load()
     c.init_chain("trackid", "trackid")
     
-    load_files(c)
+    load_files(c, sample_path)
     
     prev = c.choose_next_track()
     c.record_transition(None, prev)
@@ -38,8 +36,8 @@ def main():
         c.record_transition(prev, cur, False)
         
         if playcount == 0:
-            os.system(PLAYCMD % os.path.join(SAMPLEPATH, prev["title"]))
-        os.system(PLAYCMD % os.path.join(SAMPLEPATH, cur["title"]))
+            os.system(PLAYCMD % os.path.join(sample_path, prev["title"]))
+        os.system(PLAYCMD % os.path.join(sample_path, cur["title"]))
         
         print
         previd = c.get_track(prev).id
@@ -71,4 +69,4 @@ def main():
     c.unload()
     
 if __name__ == "__main__":
-    main()
+    run_demo(main)
