@@ -27,15 +27,16 @@ class MarkovConductor(Conductor):
         self.chains = {}
         
         # Configuration defaults
-        config.update({"weight_func": self._calculate_weight,
+        self.config = {"weight_function": self._calculate_weight,
                        "user_choice_score": 2,
                        "markov_choice_score": 1,
                        "min_score_divisor": 10,
                        "default_score": 0,
                        "default_userscore": 0,
-                       "min_userscore": -5,
-                       "max_userscore": 5})
-        self.config = config
+                       "min_userscore": - 5,
+                       "max_userscore": 5}
+        
+        self.config.update(config)
         
     def load(self):
         _log.info("Loading MarkovConductor.")
@@ -195,7 +196,7 @@ class MarkovConductor(Conductor):
             
             scores = {}
             for row in self.musicdb.execute(sql):
-                scores[row["totrackid"]] = self.config["weight_func"](row["totalscore"], row["totaluserscore"])
+                scores[row["totrackid"]] = self.config["weight_function"](row["totalscore"], row["totaluserscore"])
             
             _log.debug("Calculated scores for track id %s: %s.", fromid, repr(scores))
             return scores
