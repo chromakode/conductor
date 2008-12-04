@@ -5,7 +5,7 @@ import math
 import random
 import bisect
 
-from conductor import Conductor, _lookup_descs
+from conductor import Conductor
 
 _log = logging.getLogger("conductor.markov")
 
@@ -88,9 +88,10 @@ class MarkovConductor(Conductor):
             self.chains[fromfield, tofield].delete()
             del self.chains[fromfield, tofield]
     
-    @_lookup_descs
     def record_transition(self, fromtrack, totrack, userchoice=True):
+        fromtrack, totrack = self._lookup_tracks(fromtrack, totrack)
         _log.info("Recording transition from %s to %s.", fromtrack.id if fromtrack else "[No track]", totrack.id)
+        
         Conductor.record_transition(self, fromtrack, totrack, userchoice)
         self.score_transition(fromtrack, totrack, amount=1)
     
@@ -110,8 +111,8 @@ class MarkovConductor(Conductor):
         Returns a dictionary containing the name, album, artist, and genre of the chosen track.
         
         """
-        
-        fromid = self.get_track(fromtrack).id if fromtrack else None
+        fromtrack = self._lookup_tracks(fromtrack)[0]        
+        fromid = fromtrack.id if fromtrack else None
         toid = self.choose_next_id(fromid)
         
         totrack = self.musicdb.get_track_by_id(toid)

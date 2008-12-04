@@ -1,13 +1,7 @@
 import logging
 _log = logging.getLogger("conductor.conductor")
 
-from ..musicdb import MusicDB
-
-def _lookup_descs(f):
-    """Performs database lookups foe each track description in the arguments, and calls the decorated method with a list of database Track instances.""" 
-    def f_tracks(self, fromdesc, todesc, *args, **kwargs):
-        f(self, self.get_track(fromdesc), self.get_track(todesc), *args, **kwargs)
-    return f_tracks
+from ..musicdb import MusicDB, Track
 
 class Conductor:
     def __init__(self, dbpath):
@@ -27,6 +21,10 @@ class Conductor:
                 "album":  track.album["name"],
                 "artist": track.artist["name"],
                 "genre":  track.genre["name"] if track.genre else ""}
+            
+    def _lookup_tracks(self, *tracks):
+        return [self.get_track(track) for track in tracks 
+                if not isinstance(track, Track)]
             
     def touch_track(self, d):
         """Ensure that the specified track exists within the database."""
