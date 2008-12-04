@@ -28,6 +28,8 @@ class MarkovConductor(Conductor):
         
         # Configuration defaults
         config.update({"weight_func": self._calculate_weight,
+                       "user_choice_score": 2,
+                       "markov_choice_score": 1,
                        "min_score_divisor": 10,
                        "default_score": 0,
                        "default_userscore": 0,
@@ -93,7 +95,12 @@ class MarkovConductor(Conductor):
         _log.info("Recording transition from track %s to %s.", fromtrack.id if fromtrack else "[No track]", totrack.id)
         
         Conductor.record_transition(self, fromtrack, totrack, userchoice)
-        self.score_transition(fromtrack, totrack, amount=1)
+        
+        if userchoice:
+            amount = self.config["user_choice_score"]
+        else:
+            amount = self.config["markov_choice_score"]
+        self.score_transition(fromtrack, totrack, amount)
     
     def record_user_feedback(self, liked):
         """Called when a user likes or dislikes a transition."""
