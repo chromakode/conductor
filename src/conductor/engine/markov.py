@@ -21,11 +21,19 @@ def weighted_choice(weight_dict):
     
     return weight_dict.keys()[index]
 
-class MarkovConductor(Conductor):    
-    def __init__(self, dbpath):
+class MarkovConductor(Conductor):
+    def __init__(self, dbpath, config={}):
         Conductor.__init__(self, dbpath)
         self.chains = {}
-        self.weight_func = self._calculate_weight
+        
+        # Configuration defaults
+        config.update({"weight_func": self._calculate_weight,
+                       "min_score_divisor": 10,
+                       "default_score": 0,
+                       "default_userscore": 0,
+                       "min_userscore": -5,
+                       "max_userscore": 5})
+        self.config = config
         
     def load(self):
         _log.info("Loading MarkovConductor.")
@@ -135,21 +143,26 @@ class MarkovConductor(Conductor):
                         #
                         # e.g. ifnull(transition_field_field.score, 0) / (SELECT SUM(score) FROM table WHERE from_field=fromtrack.field)
                         #
-                        " + ".join(("ifnull(" +
-                                        "CAST(ifnull(%(table)s.score, 0) AS FLOAT)" +
-                                        " / (SELECT MAX(10, MAX(score)) FROM %(table)s" +
-                                        " WHERE %(fromfield_column)s=" + if_fromid("fromtrack.%(fromfield)s", "-1") + ")" + 
-                                    ", 0)")
+                        " + ".join(("CAST(ifnull(%(table)s.score, %(default_score)s) AS FLOAT)" +
+                                    "/ ifnull(" +
+                                        "(SELECT MAX(%(min_score_divisor)s, MAX(score)) FROM %(table)s" +
+                                        " WHERE %(fromfield_column)s=" + if_fromid("fromtrack.%(fromfield)s", "-1") +
+                                    "), 1)")
                                    % {"table": c.table,
                                       "fromfield": c.fromfield,
-                                      "fromfield_column": c.fromfield_column}
+                                      "fromfield_column": c.fromfield_column,
+                                      "min_score_divisor": self.config["min_score_divisor"],
+                                      "default_score": self.config["default_score"]}
                                    for c in self.chains.values()),
                         "AS totalscore,",
                         
                         " + ".join(("ifnull(" + 
-                                        "ifnull( MAX(-5, MIN(5, %(table)s.userscore)) , 0)"
-                                    ", 0)")
-                                   % {"table": c.table}
+                                        "MAX(%(min_userscore)s, MIN(%(max_userscore)s, %(table)s.userscore))" +
+                                    ", %(default_userscore)s)")
+                                   % {"table": c.table,
+                                      "min_userscore": self.config["min_userscore"],
+                                      "max_userscore": self.config["max_userscore"],
+                                      "default_userscore": self.config["default_userscore"]}
                                    for c in self.chains.values()),
                         "AS totaluserscore",
                                     
@@ -172,7 +185,9 @@ class MarkovConductor(Conductor):
                     if_fromid("WHERE fromtrack.trackid=%s" % fromid),
                 ))
             
-            scores = dict((row["totrackid"], self.weight_func(row["totalscore"], row["totaluserscore"])) for row in self.musicdb.execute(sql))
+            scores = {}
+            for row in self.musicdb.execute(sql):
+                scores[row["totrackid"]] = self.config["weight_func"](row["totalscore"], row["totaluserscore"])
             
             _log.debug("Calculated scores for track id %s: %s.", fromid, repr(scores))
             return scores
